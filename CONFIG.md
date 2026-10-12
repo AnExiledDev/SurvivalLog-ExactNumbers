@@ -6,7 +6,7 @@ Settings live in `BepInEx\config\com.dev.survivallog.exactnumbers.cfg`, created 
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| `Enabled` | `true` | Show exact numbers instead of + and - marks in the stat chips of action and crafting tooltips. Off leaves every tooltip as the game draws it. |
+| `Enabled` | `true` | Show the game's listed numbers, marked `~` as estimates, instead of + and - marks in the stat chips of action and crafting tooltips. Off leaves every tooltip as the game draws it. |
 | `ApplyModifiers` | `true` | Scale the numbers by your character's own satiety, mood, energy and life ratios, the way the game scales every change to those stats. Where that changed a number, the chip also carries the listed one as hover text. Off shows the game's listed numbers unchanged. |
 
 There are no hotkeys.

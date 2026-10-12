@@ -5,8 +5,14 @@ namespace ExactNumbers.Tests;
 
 public class LabelBookTests
 {
+    private const string Minus = "\u2212";
+    private const char Separator = '\u001e';
+
     private static Modifiers SatietyCost(float ratio) =>
         new(new Dictionary<RatioKey, float> { [new RatioKey(Stat.Satiety, false)] = ratio });
+
+    private static GameFacts Menu(string pageId, params string[] previews) =>
+        GameMessage.Read(string.Join(Separator, "8", pageId, GameMessage.MenuMessage, "{\"btnList\":[" + string.Join(",", previews.Select(preview => "{\"attrDelta\":\"" + preview + "\"}")) + "]}"));
 
     [Fact]
     public void An_answer_carries_the_numbers_for_the_preview_asked_about()
@@ -14,7 +20,7 @@ public class LabelBookTests
         var book = new LabelBook();
 
         Assert.Equal(
-            "{\"Satiety:-12\":[{\"k\":\"cost\",\"v\":\"\u2212\u2212\",\"s\":\"\u221212\",\"b\":null}]}",
+            "{\"Satiety:-12\":[{\"k\":\"cost\",\"v\":\"" + Minus + Minus + "\",\"s\":\"~" + Minus + "12\",\"t\":" + JsText.Literal(ChipLabels.EstimateTitle) + "}]}",
             book.Answer("Satiety:-12"));
     }
 
@@ -25,7 +31,7 @@ public class LabelBookTests
 
         book.Update(SatietyCost(0.25f));
 
-        Assert.Contains("\"s\":\"\u221215\",\"b\":\"\u221212\"", book.Answer("Satiety:-12"));
+        Assert.Contains("\"s\":\"~" + Minus + "15\"", book.Answer("Satiety:-12"));
     }
 
     [Fact]
@@ -50,7 +56,7 @@ public class LabelBookTests
         var resend = book.Update(SatietyCost(0.5f));
 
         Assert.NotNull(resend);
-        Assert.Contains("\"Satiety:-12\":[{\"k\":\"cost\",\"v\":\"\u2212\u2212\",\"s\":\"\u221218\"", resend);
+        Assert.Contains("\"Satiety:-12\":[{\"k\":\"cost\",\"v\":\"" + Minus + Minus + "\",\"s\":\"~" + Minus + "18\"", resend);
         Assert.Contains("\"Stamina:-20\":", resend);
     }
 
@@ -90,5 +96,37 @@ public class LabelBookTests
 
         Assert.Contains("\"Satiety:-" + LabelBook.MaxRemembered + "\":", resend);
         Assert.DoesNotContain("\"Satiety:-" + (LabelBook.MaxRemembered + 1) + "\":", resend);
+    }
+
+    [Fact]
+    public void A_menu_answer_gives_the_page_its_button_previews_and_their_numbers_together()
+    {
+        var answer = new LabelBook().AnswerGame(3, Menu("SelectMenu_7", "Satiety:-12", ""));
+
+        Assert.StartsWith("{\"seq\":3,\"menu\":{\"page\":\"SelectMenu_7\",\"previews\":[\"Satiety:-12\",\"\"]},\"labels\":{\"Satiety:-12\":[{", answer);
+    }
+
+    [Fact]
+    public void A_message_that_held_nothing_is_still_answered_with_its_number_so_menus_stop_waiting()
+    {
+        Assert.Equal("{\"seq\":9,\"menu\":null,\"labels\":{}}", new LabelBook().AnswerGame(9, GameFacts.Nothing));
+    }
+
+    [Fact]
+    public void Previews_sent_with_a_game_message_are_resent_when_the_modifiers_change()
+    {
+        var book = new LabelBook();
+
+        book.AnswerGame(1, Menu("SelectMenu", "Satiety:-12"));
+
+        Assert.Contains("\"Satiety:-12\":[{\"k\":\"cost\",\"v\":\"" + Minus + Minus + "\",\"s\":\"~" + Minus + "18\"", book.Update(SatietyCost(0.5f)));
+    }
+
+    [Fact]
+    public void The_page_id_is_escaped_so_it_cannot_break_out_of_the_script()
+    {
+        var answer = new LabelBook().AnswerGame(1, Menu("x\"</script>", "Satiety:-12"));
+
+        Assert.Contains("\"page\":\"x\\\"\\u003c/script>\"", answer);
     }
 }

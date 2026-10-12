@@ -73,6 +73,9 @@ internal sealed class ExactSession
                 case PageCommand.Need need:
                     _page.Labels(_book.Answer(need.Preview));
                     break;
+                case PageCommand.Game game:
+                    _page.Game(_book.AnswerGame(game.Seq, GameMessage.Read(game.Message)));
+                    break;
                 case PageCommand.Unknown unknown:
                     _log("page said: " + unknown.Text);
                     break;

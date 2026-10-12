@@ -14,7 +14,7 @@ public sealed class Plugin : BasePlugin
 
     public override void Load()
     {
-        var isEnabled = Config.Bind("General", "Enabled", true, "Show exact numbers instead of + and - marks in the stat chips of action and crafting tooltips.").Value;
+        var isEnabled = Config.Bind("General", "Enabled", true, "Show the game's listed numbers, marked ~ as estimates, instead of + and - marks in the stat chips of action and crafting tooltips.").Value;
         var applyModifiers = Config.Bind("General", "ApplyModifiers", true, "Scale the numbers by your character's own stat ratios, the way the game scales every satiety, mood, energy and life change. Off shows the game's listed numbers unchanged.").Value;
         var log = new ExactLog(Log, Path.Combine(Paths.BepInExRootPath, "exact-numbers.log"));
 
