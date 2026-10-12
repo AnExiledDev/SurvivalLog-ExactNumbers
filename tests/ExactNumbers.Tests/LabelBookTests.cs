@@ -171,7 +171,7 @@ public class LabelBookTests
 
     private static readonly MeasureSite Bed = new(500, 7);
 
-    private static UseSample BedSatiety(double amount) => new(new MeasureKey(Bed, Stat.Satiety), false, amount, 0, false);
+    private static UseSample BedSatiety(double amount) => new(new MeasureKey(Bed, Stat.Satiety), false, amount, 0, false, false);
 
     [Fact]
     public void A_key_with_a_measured_function_is_answered_with_the_measured_number()
