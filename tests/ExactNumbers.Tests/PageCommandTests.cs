@@ -32,8 +32,17 @@ public class PageCommandTests
     public void An_empty_or_oversized_request_is_not_answered()
     {
         Assert.IsType<PageCommand.Unknown>(PageCommand.Parse(PageCommand.Prefix + "need|"));
-        Assert.IsType<PageCommand.Unknown>(PageCommand.Parse(PageCommand.Prefix + "need|" + new string('x', PageCommand.MaxPreviewLength + 1)));
-        Assert.IsType<PageCommand.Need>(PageCommand.Parse(PageCommand.Prefix + "need|" + new string('x', PageCommand.MaxPreviewLength)));
+        Assert.IsType<PageCommand.Unknown>(PageCommand.Parse(PageCommand.Prefix + "need|" + new string('x', PageCommand.MaxKeyLength + 1)));
+        Assert.IsType<PageCommand.Need>(PageCommand.Parse(PageCommand.Prefix + "need|" + new string('x', PageCommand.MaxKeyLength)));
+    }
+
+    /// <summary>The longest preview the plugin answers must still be answered with its furniture function in front.</summary>
+    [Fact]
+    public void A_request_for_the_longest_preview_with_its_function_in_front_is_answered()
+    {
+        var key = "@2147483647/2147483647/" + new string('x', PageCommand.MaxPreviewLength);
+
+        Assert.Equal(new PageCommand.Need(key), PageCommand.Parse(PageCommand.Prefix + "need|" + key));
     }
 
     [Fact]

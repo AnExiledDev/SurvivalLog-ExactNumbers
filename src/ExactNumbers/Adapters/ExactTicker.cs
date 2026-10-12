@@ -32,6 +32,19 @@ public sealed class ExactTicker : MonoBehaviour
         }
     }
 
+    /// <summary>Saves the measurements taken since the last periodic save.</summary>
+    private void OnApplicationQuit()
+    {
+        try
+        {
+            Session?.Quit();
+        }
+        catch (Exception ex)
+        {
+            ReportFailure(ex);
+        }
+    }
+
     private static void ReportFailure(Exception ex)
     {
         if (ReportedFailures.Count >= MaxReportedFailures || !ReportedFailures.Add(ex.GetType().FullName + ": " + ex.Message)) return;

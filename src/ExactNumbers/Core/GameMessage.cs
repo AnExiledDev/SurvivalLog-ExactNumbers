@@ -4,13 +4,23 @@ using System.Text.Json;
 
 namespace ExactNumbers.Core;
 
-/// <summary>An object menu the game sent to one menu page: each button's preview text in button order, "" for a button without one.</summary>
-public sealed record PageMenu(string PageId, IReadOnlyList<string> Previews);
+/// <summary>
+/// An object menu the game sent to one menu page: each button's preview text in button order, "" for a button without
+/// one, and each button's furniture function id when the message carries one (null when it does not; SelectMenu.html
+/// never reads one, so the plugin also reads the menu's state on the C# side).
+/// </summary>
+public sealed record PageMenu(string PageId, IReadOnlyList<string> Previews, IReadOnlyList<int?> FuncIds);
 
-/// <summary>What one game-to-page message tells the mod: the object menu it carries, if it is one, and every preview text in it.</summary>
-public sealed record GameFacts(PageMenu? Menu, IReadOnlyList<string> Previews)
+/// <summary>A crafting recipe's product preview, with the recipe key the page knows the recipe by (ToolTable.html:3271, 3420-3434).</summary>
+public sealed record RecipeProduct(string RecipeKey, string Preview);
+
+/// <summary>
+/// What one game-to-page message tells the mod: the object menu it carries, if it is one, every preview text in it, and
+/// every recipe product preview with its recipe key.
+/// </summary>
+public sealed record GameFacts(PageMenu? Menu, IReadOnlyList<string> Previews, IReadOnlyList<RecipeProduct> Products)
 {
-    public static readonly GameFacts Nothing = new(null, Array.Empty<string>());
+    public static readonly GameFacts Nothing = new(null, Array.Empty<string>(), Array.Empty<RecipeProduct>());
 }
 
 /// <summary>
@@ -25,6 +35,9 @@ public static class GameMessage
 
     /// <summary>Far above the buttons of any menu or the recipes of any table; past this a message's previews are not collected.</summary>
     public const int MaxPreviews = 256;
+
+    /// <summary>Recipe keys are short ids; a longer one is not mapped.</summary>
+    public const int MaxRecipeKeyLength = 200;
 
     public const string MenuMessage = "WebUI_SelectMenu_MenuMsg";
 
@@ -53,10 +66,12 @@ public static class GameMessage
             var data = document.RootElement;
             var menu = isMenu ? MenuOf(parts[1], data) : null;
             var previews = new List<string>();
+            var products = new List<RecipeProduct>();
 
             CollectPreviews(data, previews);
+            CollectProducts(data, products);
 
-            return new GameFacts(menu, previews);
+            return new GameFacts(menu, previews, products);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or ArgumentException)
         {
@@ -68,7 +83,8 @@ public static class GameMessage
     /// A menu whose buttons cannot be read has no previews, so the page drops the ones it holds for that page instead of
     /// putting the previous open's numbers on the new menu's chips.
     /// </summary>
-    private static GameFacts UnreadableMenu(string pageId) => new(new PageMenu(pageId, Array.Empty<string>()), Array.Empty<string>());
+    private static GameFacts UnreadableMenu(string pageId) =>
+        new(new PageMenu(pageId, Array.Empty<string>(), Array.Empty<int?>()), Array.Empty<string>(), Array.Empty<RecipeProduct>());
 
     /// <summary>Null when the message has no button list: the page keeps its old list then (SelectMenu.html:439-443), and so does the mod.</summary>
     private static PageMenu? MenuOf(string pageId, JsonElement data)
@@ -76,10 +92,23 @@ public static class GameMessage
         if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("btnList", out var buttons) || buttons.ValueKind != JsonValueKind.Array) return null;
 
         var previews = new List<string>();
+        var funcIds = new List<int?>();
 
-        foreach (var button in buttons.EnumerateArray()) previews.Add(PreviewOf(button));
+        foreach (var button in buttons.EnumerateArray())
+        {
+            previews.Add(PreviewOf(button));
+            funcIds.Add(FuncIdOf(button));
+        }
 
-        return new PageMenu(pageId, previews);
+        return new PageMenu(pageId, previews, funcIds);
+    }
+
+    /// <summary>A button's "funcId", when the message carries a positive whole number there.</summary>
+    private static int? FuncIdOf(JsonElement button)
+    {
+        if (button.ValueKind != JsonValueKind.Object || !button.TryGetProperty("funcId", out var id)) return null;
+
+        return id.ValueKind == JsonValueKind.Number && id.TryGetInt32(out var funcId) && funcId > 0 ? funcId : null;
     }
 
     private static string PreviewOf(JsonElement button)
@@ -107,6 +136,45 @@ public static class GameMessage
 
                 break;
         }
+    }
+
+    /// <summary>
+    /// Every object holding both a product preview and a recipe key, as buildRecipeProduct reads them
+    /// (ToolTable.html:3420-3434). The key is a string there; a number is read as its text.
+    /// </summary>
+    private static void CollectProducts(JsonElement element, List<RecipeProduct> products)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                if (ProductOf(element) is { } product && products.Count < MaxPreviews) products.Add(product);
+
+                foreach (var property in element.EnumerateObject()) CollectProducts(property.Value, products);
+
+                break;
+            case JsonValueKind.Array:
+                foreach (var item in element.EnumerateArray()) CollectProducts(item, products);
+
+                break;
+        }
+    }
+
+    private static RecipeProduct? ProductOf(JsonElement recipe)
+    {
+        if (!recipe.TryGetProperty("productAttrDelta", out var preview) || preview.ValueKind != JsonValueKind.String) return null;
+        if (!recipe.TryGetProperty("recipeKey", out var key)) return null;
+
+        var text = preview.GetString() ?? "";
+        var recipeKey = key.ValueKind switch
+        {
+            JsonValueKind.String => key.GetString() ?? "",
+            JsonValueKind.Number => key.GetRawText(),
+            _ => "",
+        };
+
+        if (string.IsNullOrWhiteSpace(text) || text.Length > PageCommand.MaxPreviewLength || recipeKey.Length is 0 or > MaxRecipeKeyLength) return null;
+
+        return new RecipeProduct(recipeKey, text);
     }
 
     private static void Add(string? preview, List<string> previews)
