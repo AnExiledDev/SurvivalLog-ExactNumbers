@@ -9,7 +9,7 @@ The `~` matters: every number is the game's own listed estimate for the action, 
 ## Features
 
 - **Numbers instead of marks**: every + or - chip in an object's action menu tooltip and in the crafting table's product tooltip shows its listed number, marked `~`.
-- **Your character's modifiers**: the game scales every satiety, mood, energy and life change by your character's own ratios (from traits, conditions and the like). By default the numbers include that scaling, so they match what your character gets. Where the scaling changed a number, the chip also carries the listed one as hover text (`listed -12 before your modifiers`), for the tooltips that stay open while you point at them. Turn `ApplyModifiers` off to see the listed numbers instead.
+- **Your character's modifiers**: the game scales every satiety, mood, energy and life change by your character's own ratios (from traits, conditions and the like). By default the numbers include that scaling, the same scaling the game applies to your character's changes. Where the scaling changed a number, the chip also carries the listed one as hover text (`listed -12 before your modifiers`), for the tooltips that stay open while you point at them. Turn `ApplyModifiers` off to see the listed numbers instead.
 - **Safe fallback**: if anything does not look the way the mod expects, the tooltip stays exactly as the game drew it.
 - **A log file**: what the mod set up, and your character's ratios whenever they change, are written to `BepInEx\exact-numbers.log`.
 
@@ -26,7 +26,7 @@ The `~` is there because the preview is not what the game applies. It is a summa
 - Some gains fill a stat up to a set amount, and every stat stops at zero and at its maximum.
 - Food types, difficulty, conditions and buffs can change the amount.
 
-Exact Numbers does not read the action's real effects yet, so take every `~` number as the game's estimate, now with a number on it. A tooltip never shows a number without the `~`.
+Exact Numbers does not read the action's real effects yet, so take every `~` number as the game's estimate, now with a number on it. Exact Numbers never adds a number without the `~`.
 
 Please also keep in mind:
 
@@ -84,7 +84,7 @@ dotnet build src/ExactNumbers -c Release -p:GameDir="C:\path\to\Survival Log"
 
 `GameDir` is the game folder. The default in the project file is a local path you will almost certainly need to override. The output DLL is at `src\ExactNumbers\bin\Release\ExactNumbers.dll`.
 
-The unit tests cover the pure rules (reading the game's messages to its pages and the preview line the way those pages do, the game's modifier formula, how numbers are written and marked, and when they are sent again) and need nothing from the game:
+The unit tests cover the pure rules (reading the game's messages to its pages and the preview line the way those pages do, the game's modifier formula, how numbers are written and marked, and when they are sent again), plus the page script, run in a JavaScript engine against a stand-in for the game's UI. They need nothing from the game:
 
 ```
 dotnet test tests/ExactNumbers.Tests

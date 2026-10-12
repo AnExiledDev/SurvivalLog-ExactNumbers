@@ -83,10 +83,44 @@ public class GameMessageTests
         Assert.Same(GameFacts.Nothing, GameMessage.Read(string.Join(Separator, "4", "", "", "{\"attrDelta\":\"Satiety:-12\"}")));
     }
 
+    /// <summary>The page may still draw a menu from it; the previous open's previews must not land on those chips.</summary>
+    [Fact]
+    public void A_menu_message_that_cannot_be_parsed_empties_that_pages_menu()
+    {
+        var facts = GameMessage.Read(PageMessage("SelectMenu_9", GameMessage.MenuMessage, "{\"btnList\":["));
+
+        Assert.Equal("SelectMenu_9", facts.Menu!.PageId);
+        Assert.Empty(facts.Menu!.Previews);
+        Assert.Empty(facts.Previews);
+    }
+
+    [Fact]
+    public void A_menu_message_with_an_escaped_lone_surrogate_empties_that_pages_menu_instead_of_throwing()
+    {
+        var facts = GameMessage.Read(MenuMessage("{\"btnList\":[{\"attrDelta\":\"Satiety:-12\\ud800\"}]}"));
+
+        Assert.Equal("SelectMenu", facts.Menu!.PageId);
+        Assert.Empty(facts.Menu!.Previews);
+    }
+
+    [Fact]
+    public void A_menu_message_holding_a_raw_lone_surrogate_empties_that_pages_menu_instead_of_throwing()
+    {
+        var facts = GameMessage.Read(MenuMessage("{\"btnList\":[{\"attrDelta\":\"Satiety:-12\ud800\"}]}"));
+
+        Assert.Empty(facts.Menu!.Previews);
+    }
+
+    [Fact]
+    public void Another_page_message_with_a_lone_surrogate_teaches_nothing_instead_of_throwing()
+    {
+        Assert.Same(GameFacts.Nothing, GameMessage.Read(PageMessage("ToolTable", "WebUI_ToolTable_RecipeMsg", "{\"recipes\":[{\"productAttrDelta\":\"\\ud800\"}]}")));
+    }
+
     [Fact]
     public void A_broken_or_oversized_message_teaches_nothing()
     {
-        Assert.Same(GameFacts.Nothing, GameMessage.Read(MenuMessage("{\"btnList\":[")));
+        Assert.Same(GameFacts.Nothing, GameMessage.Read(PageMessage("ToolTable", "WebUI_ToolTable_RecipeMsg", "{\"recipes\":[")));
         Assert.Same(GameFacts.Nothing, GameMessage.Read("8" + Separator + "SelectMenu"));
         Assert.Same(GameFacts.Nothing, GameMessage.Read(null));
         Assert.Same(GameFacts.Nothing, GameMessage.Read(MenuMessage("{\"btnList\":[],\"pad\":\"" + new string('x', GameMessage.MaxLength) + "\"}")));

@@ -122,6 +122,43 @@ public class LabelBookTests
         Assert.Contains("\"Satiety:-12\":[{\"k\":\"cost\",\"v\":\"" + Minus + Minus + "\",\"s\":\"~" + Minus + "18\"", book.Update(SatietyCost(0.5f)));
     }
 
+    /// <summary>The page keeps every number it was sent, so a recipe list sent again does not cost its labels again.</summary>
+    [Fact]
+    public void A_game_answer_leaves_out_numbers_the_page_was_already_sent()
+    {
+        var book = new LabelBook();
+
+        book.AnswerGame(1, Menu("SelectMenu", "Satiety:-12"));
+        book.Answer("Stamina:-20");
+
+        var answer = book.AnswerGame(2, Menu("SelectMenu", "Satiety:-12", "Stamina:-20", "Morale:+4"));
+
+        Assert.DoesNotContain("\"Satiety:-12\":", answer);
+        Assert.DoesNotContain("\"Stamina:-20\":", answer);
+        Assert.Contains("\"Morale:+4\":", answer);
+    }
+
+    [Fact]
+    public void A_menu_answer_still_lists_every_buttons_preview_when_their_numbers_were_sent_before()
+    {
+        var book = new LabelBook();
+
+        book.AnswerGame(1, Menu("SelectMenu", "Satiety:-12"));
+
+        Assert.Equal("{\"seq\":2,\"menu\":{\"page\":\"SelectMenu\",\"previews\":[\"Satiety:-12\"]},\"labels\":{}}", book.AnswerGame(2, Menu("SelectMenu", "Satiety:-12")));
+    }
+
+    [Fact]
+    public void A_reloaded_page_is_sent_every_number_again()
+    {
+        var book = new LabelBook();
+
+        book.AnswerGame(1, Menu("SelectMenu", "Satiety:-12"));
+        book.PageReloaded();
+
+        Assert.Contains("\"Satiety:-12\":[{", book.AnswerGame(1, Menu("SelectMenu", "Satiety:-12")));
+    }
+
     [Fact]
     public void The_page_id_is_escaped_so_it_cannot_break_out_of_the_script()
     {

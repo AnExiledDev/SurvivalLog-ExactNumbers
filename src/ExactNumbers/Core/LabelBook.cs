@@ -27,12 +27,18 @@ public sealed class LabelBook
         return PagePayload.Labels(new[] { preview }, _modifiers);
     }
 
-    /// <summary>The answer to a game message the page passed on: always given, even when the message held nothing, so the page knows it was read.</summary>
+    /// <summary>
+    /// The answer to a game message the page passed on: always given, even when the message held nothing, so the page
+    /// knows it was read. It carries numbers only for previews the page was not sent since it loaded; the page keeps the
+    /// rest, and Update resends all of them when the modifiers change.
+    /// </summary>
     public string AnswerGame(int seq, GameFacts facts)
     {
-        foreach (var preview in facts.Previews) Remember(preview);
+        var unsent = facts.Previews.Where(preview => !_sent.Contains(preview)).ToList();
 
-        return PagePayload.Game(seq, facts, _modifiers);
+        foreach (var preview in unsent) Remember(preview);
+
+        return PagePayload.Game(seq, facts with { Previews = unsent }, _modifiers);
     }
 
     /// <returns>The payload to resend when the modifiers changed and the page holds numbers made with the old ones; otherwise null.</returns>
