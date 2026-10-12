@@ -85,6 +85,18 @@ public class MeasuredChipTests
         Assert.Equal(ChipLabels.EstimateTitle + ChipLabels.FillToNote, label.Title);
     }
 
+    /// <summary>
+    /// The fill effect is told from the game's own effect, not from amounts that differ, so even one use, or uses that
+    /// always start from the same level, keep the estimate.
+    /// </summary>
+    [Fact]
+    public void A_function_seen_filling_a_stat_once_keeps_the_estimate()
+    {
+        var label = ChipLabels.For("Stamina:+20", Modifiers.None, Bed, Store(Sample(20, reach: 80, isFillTo: true)))!.Last();
+
+        Assert.Equal("~+20", label.Shown);
+    }
+
     [Fact]
     public void A_measurement_going_the_other_way_than_the_chip_keeps_the_estimate()
     {

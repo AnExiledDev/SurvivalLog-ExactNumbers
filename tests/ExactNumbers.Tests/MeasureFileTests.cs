@@ -97,6 +97,27 @@ public class MeasureFileTests
         Assert.Null(MeasureFile.Read(json, Version));
     }
 
+    /// <summary>
+    /// Starting fresh would overwrite this version's measurements at the next save, so the file reads as unreadable and
+    /// the caller sets it aside.
+    /// </summary>
+    [Theory]
+    [InlineData("{\"seq\":1}")]
+    [InlineData("[]")]
+    [InlineData("{\"seq\":1,\"records\":{}}")]
+    public void This_game_versions_measurements_in_a_shape_the_mod_cannot_read_make_the_file_unreadable(string entry)
+    {
+        Assert.Null(MeasureFile.Read("{\"format\":1,\"versions\":{\"" + Version + "\":" + entry + "}}", Version));
+    }
+
+    [Fact]
+    public void Another_game_versions_entry_in_a_shape_the_mod_cannot_read_does_not_stop_this_versions_measurements()
+    {
+        var json = "{\"format\":1,\"versions\":{\"0.9\":[],\"" + Version + "\":{\"seq\":1,\"records\":[" + Record("500", "Stamina") + "]}}}";
+
+        Assert.NotNull(MeasureFile.Read(json, Version)!.Store.Find(BedStamina));
+    }
+
     [Fact]
     public void A_bad_record_is_skipped_and_the_rest_are_read()
     {

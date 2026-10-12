@@ -27,7 +27,8 @@ internal static class Uses
         bool hasChange = true,
         float max = 100,
         int funcId = 0,
-        int at = 0)
+        int at = 0,
+        bool isFillTo = false)
     {
         var change = hasChange ? (StatChange?)new StatChange(value, before, after ?? before + value) : null;
 
@@ -46,13 +47,22 @@ internal static class Uses
             max,
             ActionId,
             funcId,
-            at);
+            at,
+            isFillTo);
     }
 
-    public static UseStart Use(bool isIndefinite = false, int funcId = Func, int actionId = ActionId) => new(actionId, 1, funcId, isIndefinite, 0);
+    /// <summary>
+    /// The call RewardSetManager.ExecuteAttrReward makes for a furniture function's end-of-use reward, in the shape the
+    /// hooks see it (RewardSetManager.c:993): args type None, not an action, source DynamicEvent, not furniture, config id
+    /// 0. The stat took it in full unless after is given.
+    /// </summary>
+    public static CostCall Reward(float value, float before = 50, float? after = null, Stat? stat = Stat.Stamina) =>
+        new(stat?.ToString() ?? "Hp", stat, value, 1, "None", false, false, "DynamicEvent", false, 0, new StatChange(value, before, after ?? before + value), 100, ActionId, Func, 0);
 
-    public static UseSample Sample(double amount, double reach = 0, bool endedAtMax = false, bool isRate = false, MeasureSite? site = null, Stat stat = Stat.Stamina) =>
-        new(new MeasureKey(site ?? Bed, stat), isRate, amount, reach, endedAtMax);
+    public static UseStart Use(bool isIndefinite = false, int funcId = Func, int actionId = ActionId, long press = 0) => new(actionId, 1, funcId, isIndefinite, 0, press);
+
+    public static UseSample Sample(double amount, double reach = 0, bool endedAtMax = false, bool isRate = false, MeasureSite? site = null, Stat stat = Stat.Stamina, bool isFillTo = false) =>
+        new(new MeasureKey(site ?? Bed, stat), isRate, amount, reach, endedAtMax, isFillTo);
 
     public static MeasureStore Store(params UseSample[] samples)
     {

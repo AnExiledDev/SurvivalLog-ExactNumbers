@@ -7,9 +7,9 @@ namespace ExactNumbers.Adapters;
 
 /// <summary>
 /// What measuring needs on the session side: the measurer the hooks feed, the file its store is kept in, the recipe map
-/// the crafting hook fills, and where trace lines go.
+/// the crafting hook fills, where trace lines go, and how the trace lines kept in memory are written to the file.
 /// </summary>
-internal sealed record Measuring(Measurer Measurer, MeasuredFile File, RecipeSites Recipes, Action<string> Trace);
+internal sealed record Measuring(Measurer Measurer, MeasuredFile File, RecipeSites Recipes, Action<string> Trace, Action FlushTrace);
 
 /// <summary>
 /// The mod's game side, run once a frame. It keeps the page script installed, answers its requests for numbers and
@@ -59,12 +59,14 @@ internal sealed class ExactSession
         }
     }
 
-    /// <summary>Saves what is not saved yet; for the game closing.</summary>
+    /// <summary>Saves what is not saved yet and writes out the trace; for the game closing.</summary>
     public void Quit()
     {
         if (_measuring == null) return;
 
         lock (MeasureHooks.Gate) SaveIfChanged(_measuring);
+
+        _measuring.FlushTrace();
     }
 
     private void TrackMeasuring(Measuring measuring, float now)
@@ -79,6 +81,7 @@ internal sealed class ExactSession
 
         _save.Ran(now);
         SaveIfChanged(measuring);
+        measuring.FlushTrace();
     }
 
     private static void SaveIfChanged(Measuring measuring)

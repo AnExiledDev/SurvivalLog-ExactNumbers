@@ -9,7 +9,8 @@ namespace ExactNumbers.Adapters;
 /// <summary>
 /// BepInEx/exact-numbers-measured.json: the measurements, kept across sessions. Saved whole to a temporary file that
 /// then replaces the old one, so a crash mid-save leaves the last good file. A file that cannot be read is moved to
-/// exact-numbers-measured.json.bad and the mod starts with nothing measured.
+/// exact-numbers-measured.json.bad and the mod starts with nothing measured; if it cannot be moved, nothing is saved
+/// this session, so the file is left as it was.
 /// </summary>
 internal sealed class MeasuredFile
 {
@@ -18,6 +19,7 @@ internal sealed class MeasuredFile
     private readonly Action<string> _log;
     private IReadOnlyList<OtherVersion> _others = Array.Empty<OtherVersion>();
     private bool _hasReportedSaveFailure;
+    private bool _isSaveDisabled;
 
     public MeasuredFile(string path, string version, Action<string> log)
     {
@@ -54,6 +56,8 @@ internal sealed class MeasuredFile
     /// <summary>Never throws; a failed save is reported once and tried again at the next save.</summary>
     public void Save(MeasureStore store)
     {
+        if (_isSaveDisabled) return;
+
         var temporary = _path + ".tmp";
 
         try
@@ -80,7 +84,10 @@ internal sealed class MeasuredFile
         }
         catch (Exception ex)
         {
-            return Fresh($"measurements file unreadable because {reason}, and could not be set aside ({ex.Message}); starting fresh");
+            // Saving would overwrite measurements that may still be in there.
+            _isSaveDisabled = true;
+
+            return Fresh($"measurements file unreadable because {reason}, and could not be set aside ({ex.Message}); measuring from scratch without saving this session");
         }
     }
 
