@@ -14,7 +14,7 @@ public class TraceTests
         var line = TraceText.Cost(Call(10, before: 50, funcId: 7, at: 3600), TickVerdict.Kept);
 
         Assert.Equal(
-            "cost attr=Stamina value=10 requested=10 applied=10 before=50 after=60 max=100 reach=60 source=Furniture config=500 target=1 args=Action dep=no action=11 func=7 time=3600 -> Kept",
+            "cost attr=Stamina value=10 requested=10 applied=10 before=50 after=60 max=100 reach=60 source=Furniture config=500 target=1 args=Action dep=no action=11 func=7 time=3600 fill=no -> Kept",
             line);
     }
 
@@ -58,26 +58,88 @@ public class TraceTests
     {
         var budget = new LogBudget(0, 100);
 
-        Assert.False(budget.Spend(60));
-        Assert.False(budget.Spend(40));
-        Assert.True(budget.Spend(1));
-        Assert.False(budget.Spend(99));
-        Assert.True(budget.Spend(1));
+        budget.Spend(60);
+
+        Assert.False(budget.IsFull(40));
+
+        budget.Spend(40);
+
+        Assert.True(budget.IsFull(1));
+
+        budget.Rotated();
+
+        Assert.False(budget.IsFull(99));
+
+        budget.Spend(99);
+
+        Assert.True(budget.IsFull(2));
     }
 
     [Fact]
     public void A_log_carried_over_from_the_last_run_counts_toward_the_cap()
     {
-        Assert.True(new LogBudget(95, 100).Spend(10));
+        Assert.True(new LogBudget(95, 100).IsFull(10));
     }
 
-    /// <summary>Moving an empty file aside gains nothing, and a line is never split or dropped.</summary>
+    /// <summary>Moving an empty file aside gains nothing, and a line is never split.</summary>
     [Fact]
     public void A_line_longer_than_the_cap_still_goes_into_a_fresh_log_whole()
     {
         var budget = new LogBudget(0, 100);
 
-        Assert.False(budget.Spend(500));
-        Assert.True(budget.Spend(1));
+        Assert.False(budget.IsFull(500));
+
+        budget.Spend(500);
+
+        Assert.True(budget.IsFull(1));
+    }
+
+    /// <summary>A log that cannot be moved aside must not grow without bound: it stays full, and a move that keeps failing stops it.</summary>
+    [Fact]
+    public void A_log_that_could_not_be_moved_aside_stays_full_and_stops_after_repeated_failures()
+    {
+        var budget = new LogBudget(100, 100);
+
+        for (var i = 1; i < LogBudget.MaxFailedRotations; i++)
+        {
+            budget.RotationFailed();
+
+            Assert.True(budget.IsFull(1));
+            Assert.False(budget.IsStopped);
+        }
+
+        budget.RotationFailed();
+
+        Assert.True(budget.IsStopped);
+    }
+
+    [Fact]
+    public void A_move_that_works_again_clears_the_failures_before_it()
+    {
+        var budget = new LogBudget(100, 100);
+
+        for (var i = 1; i < LogBudget.MaxFailedRotations; i++) budget.RotationFailed();
+
+        budget.Rotated();
+        budget.RotationFailed();
+
+        Assert.False(budget.IsStopped);
+    }
+
+    /// <summary>Trace lines wait in memory until the next save; a burst cannot grow that without bound, and the log says what was lost.</summary>
+    [Fact]
+    public void Trace_lines_come_out_in_order_and_a_burst_past_the_cap_says_how_many_were_dropped()
+    {
+        var buffer = new TraceBuffer();
+
+        for (var i = 0; i < TraceBuffer.MaxLines + 2; i++) buffer.Add("line " + i);
+
+        var taken = buffer.Take();
+
+        Assert.Equal(TraceBuffer.MaxLines + 1, taken.Count);
+        Assert.Equal("line 0", taken[0]);
+        Assert.Equal("line " + (TraceBuffer.MaxLines - 1), taken[taken.Count - 2]);
+        Assert.Equal("trace: 2 lines dropped, more than 20000 came between two saves", taken[taken.Count - 1]);
+        Assert.Empty(buffer.Take());
     }
 }

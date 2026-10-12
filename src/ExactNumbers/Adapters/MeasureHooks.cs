@@ -16,11 +16,14 @@ namespace ExactNumbers.Adapters;
 /// amount after the character's ratio and the stat before and after. A use starts at ActionComponent.PlayAction
 /// (ActionComponent.c:709; the game sets the character's current action before calling it, ActionManager.c:10049 and
 /// 10143) and ends at ActionComponent.RemoveActionCall (ActionComponent.c:1201, called from BTEffectManager.DestroyBtArgs,
-/// BTEffectManager.c:481), whose ActionManager.RemoveAction gives the end-of-use reward unless the use was broken off
-/// (ActionManager.c:1366, 6678). Crafting recipes get their function from Reducer_Web_ToolTable.FillFurnitureBrief
-/// (Reducer_Web_ToolTable.c:4198). Only reads; every hook checks the character first so other agents cost one compare.
-/// Any failure is logged once and the hooks go dormant: a stat change must never break because of this mod. Static
-/// because Harmony patches are.
+/// BTEffectManager.c:481), whose ActionManager.RemoveAction (called at ActionComponent.c:1366) gives the end-of-use
+/// reward through ActionManager.TryExecuteFurnitureFuncReward unless the use was broken off (ActionManager.c:6678). The
+/// reward's stat changes look like no action's (RewardSetManager.c:993), so that call is hooked to mark them. An
+/// effect that fills a stat up to a limit (AE_AddCostAttr_Float.Run) is hooked to mark its change as fill-to. Crafting
+/// recipes get their function from Reducer_Web_ToolTable.FillFurnitureBrief (Reducer_Web_ToolTable.c:4198). Only
+/// reads; every hook checks the character first so other agents cost one compare, and a stat change that cannot count
+/// is dropped before anything is looked up, unless the trace is on. Any failure is logged once and the hooks go
+/// dormant: a stat change must never break because of this mod. Static because Harmony patches are.
 /// </summary>
 internal static class MeasureHooks
 {
@@ -35,33 +38,57 @@ internal static class MeasureHooks
     private static RecipeSites? _recipes;
     private static Action<string> _log = _ => { };
     private static Action<string> _trace = _ => { };
+    private static bool _isTracing;
     private static long _heroId = -1;
     private static int _isDormant;
     private static int _isBriefDormant;
+    private static int _isRewardOpen;
+
+    /// <summary>The stat an AE_AddCostAttr_Float.Run with a limit is about to change; null outside one.</summary>
+    [ThreadStatic] private static AttrName? _fillingAttr;
 
     /// <summary>One cost call in progress: the change event it raised, once it has.</summary>
     private sealed class Frame
     {
-        public Frame(AttrName attr)
+        public Frame(AttrName attr, bool isFillTo)
         {
             Attr = attr;
+            IsFillTo = isFillTo;
         }
 
         public AttrName Attr { get; }
 
+        public bool IsFillTo { get; }
+
         public StatChange? Change { get; set; }
+    }
+
+    /// <summary>The action ActionComponent.RemoveActionCall is removing, and the button press it belongs to.</summary>
+    private sealed class Removing
+    {
+        public Removing(int actionId, long press)
+        {
+            ActionId = actionId;
+            Press = press;
+        }
+
+        public int ActionId { get; }
+
+        public long Press { get; }
     }
 
     /// <summary>The player's character, set once a frame by the session; -1 while there is none.</summary>
     public static void SetHero(long id) => Interlocked.Exchange(ref _heroId, id);
 
+    /// <param name="trace">Where trace lines go; null when the trace is off.</param>
     /// <returns>False when the stat hooks could not all be applied; nothing is measured then.</returns>
-    public static bool Apply(Harmony harmony, Measurer measurer, RecipeSites recipes, Action<string> log, Action<string> trace)
+    public static bool Apply(Harmony harmony, Measurer measurer, RecipeSites recipes, Action<string> log, Action<string>? trace)
     {
         _measurer = measurer;
         _recipes = recipes;
         _log = log;
-        _trace = trace;
+        _trace = trace ?? (_ => { });
+        _isTracing = trace != null;
 
         try
         {
@@ -73,6 +100,8 @@ internal static class MeasureHooks
                 prefix: nameof(SeeChange));
             Patch(harmony, typeof(ActionComponent), nameof(ActionComponent.PlayAction), null, prefix: nameof(BeforePlay));
             Patch(harmony, typeof(ActionComponent), nameof(ActionComponent.RemoveActionCall), null, prefix: nameof(BeforeRemove), postfix: nameof(AfterRemove));
+            Patch(harmony, typeof(ActionManager), nameof(ActionManager.TryExecuteFurnitureFuncReward), null, prefix: nameof(BeforeReward), postfix: nameof(AfterReward));
+            Patch(harmony, typeof(AE_AddCostAttr_Float), nameof(AE_AddCostAttr_Float.Run), null, prefix: nameof(BeforeFill), postfix: nameof(AfterFill));
             log("measuring furniture functions");
         }
         catch (Exception ex)
@@ -120,7 +149,12 @@ internal static class MeasureHooks
         {
             if (!IsHero(__instance.ownerInstanceId)) return;
 
-            var frame = new Frame(attrName);
+            var isFillTo = _fillingAttr == attrName;
+
+            // Only the fill effect's own change: a change it causes to another stat is not filled to anything.
+            if (isFillTo) _fillingAttr = null;
+
+            var frame = new Frame(attrName, isFillTo);
 
             lock (Gate)
             {
@@ -156,7 +190,13 @@ internal static class MeasureHooks
 
             if (IsDormant || _measurer == null) return;
 
-            var action = CurrentAction();
+            var mayCount = MayCount(argsType, isDependency, sourceType);
+
+            // Most changes of the character are its stats running down on their own; without a trace they end here.
+            if (!mayCount && !_isTracing) return;
+
+            // Looked up only for a change that can count; a traced one that cannot shows max 0, action 0 and time -1.
+            var action = mayCount ? CurrentAction() : null;
             var call = new CostCall(
                 attrName.ToString(),
                 GameModifiers.StatOf(attrName),
@@ -169,10 +209,11 @@ internal static class MeasureHooks
                 sourceType == VitalityChangeSourceType.Furniture,
                 configId,
                 __state.Change,
-                MaxOf(__instance, attrName),
+                mayCount ? MaxOf(__instance, attrName) : 0f,
                 action?.ActionId ?? 0,
                 action?.MatchedFuncId ?? 0,
-                GameSeconds());
+                mayCount ? GameSeconds() : -1,
+                __state.IsFillTo);
 
             lock (Gate) _measurer.Cost(call);
         }
@@ -224,7 +265,12 @@ internal static class MeasureHooks
 
             _trace($"play config={config.ID} during={config.During} current action={action?.ActionId ?? 0} matched func={action?.MatchedFuncId ?? 0} target={targetId}");
 
-            var use = new UseStart(config.ID, targetId, action?.MatchedFuncId ?? 0, config.During < 0, GameSeconds());
+            // AgentAction.ParentId is the press: ActionManager.Update starts only queued actions of the current one
+            // (ActionManager.c:10033).
+            var use = new UseStart(config.ID, targetId, action?.MatchedFuncId ?? 0, config.During < 0, GameSeconds(), action?.ParentId ?? 0);
+
+            // A reward window never spans the start of an action; one left open by a reward that threw is shut here.
+            Interlocked.Exchange(ref _isRewardOpen, 0);
 
             lock (Gate) _measurer.Play(use);
         }
@@ -234,16 +280,16 @@ internal static class MeasureHooks
         }
     }
 
-    /// <summary>The action the component is removing, read before RemoveAction runs.</summary>
-    private static void BeforeRemove(ActionComponent __instance, out int __state)
+    /// <summary>The action the component is removing and its press, read before RemoveAction runs.</summary>
+    private static void BeforeRemove(ActionComponent __instance, out Removing? __state)
     {
-        __state = 0;
+        __state = null;
 
         if (IsDormant) return;
 
         try
         {
-            if (IsHero(__instance.ownerInstanceId)) __state = __instance.ActionConfig?.ID ?? -1;
+            if (IsHero(__instance.ownerInstanceId)) __state = new Removing(__instance.ActionConfig?.ID ?? -1, CurrentAction()?.ParentId ?? 0);
         }
         catch (Exception ex)
         {
@@ -251,22 +297,99 @@ internal static class MeasureHooks
         }
     }
 
-    /// <summary>A postfix, so the end-of-use reward RemoveAction hands out is part of the use.</summary>
-    private static void AfterRemove(long btArgsId, bool forceBroken, int __state)
+    /// <summary>
+    /// A postfix, so the end-of-use reward RemoveAction gives (BeforeReward) is already in the use, and the queue shows
+    /// whether the press goes on with another action.
+    /// </summary>
+    private static void AfterRemove(long btArgsId, bool forceBroken, Removing? __state)
     {
-        if (__state == 0 || IsDormant || _measurer == null) return;
+        if (__state == null || IsDormant || _measurer == null) return;
 
         try
         {
-            _trace($"remove action={__state} args={btArgsId} broken={forceBroken}");
+            var pressGoesOn = !forceBroken && PressGoesOn(__state.Press);
 
-            lock (Gate) _measurer.End(__state, forceBroken, GameSeconds());
+            _trace($"remove action={__state.ActionId} args={btArgsId} broken={forceBroken} press={__state.Press} press goes on={pressGoesOn}");
+
+            lock (Gate) _measurer.End(__state.ActionId, forceBroken, GameSeconds(), pressGoesOn);
         }
         catch (Exception ex)
         {
             Fail("at the end of an action", ex);
         }
     }
+
+    /// <summary>
+    /// ActionManager.TryExecuteFurnitureFuncReward (ActionManager.c:8207), which RemoveAction calls only for a use that
+    /// was not broken off (ActionManager.c:6678). For an action with a matched function it gives that function's reward
+    /// set (ActionManager.c:8270, 8296), and RewardSetManager.ExecuteAttrReward hands each stat reward to CostAttrValue
+    /// with no args type, sourced to a dynamic event, config id 0 (RewardSetManager.c:993): nothing in the call says
+    /// which furniture it came from, so the window carries it. Without a matched function the game picks the reward by
+    /// the furniture's functions (ActionManager.c:8326-8344), which this does not repeat; those rewards are not counted.
+    /// </summary>
+    private static void BeforeReward(AgentAction action, long agentId, out bool __state)
+    {
+        __state = false;
+
+        if (IsDormant || _measurer == null) return;
+
+        try
+        {
+            if (action == null || !IsHero(agentId)) return;
+
+            var site = new MeasureSite(FurnitureOf(action.TargetId), action.MatchedFuncId);
+
+            lock (Gate) _measurer.OpenReward(action.ActionId, site);
+
+            Interlocked.Exchange(ref _isRewardOpen, 1);
+            __state = true;
+        }
+        catch (Exception ex)
+        {
+            Fail("before an end-of-use reward", ex);
+        }
+    }
+
+    private static void AfterReward(bool __state)
+    {
+        if (!__state) return;
+
+        Interlocked.Exchange(ref _isRewardOpen, 0);
+
+        if (IsDormant || _measurer == null) return;
+
+        try
+        {
+            lock (Gate) _measurer.CloseReward();
+        }
+        catch (Exception ex)
+        {
+            Fail("after an end-of-use reward", ex);
+        }
+    }
+
+    /// <summary>
+    /// AE_AddCostAttr_Float.Run (AE_AddCostAttr_Float.c:4). With a MaxValue (the constructor's -1 means none,
+    /// AE_AddCostAttr_Float.c:111) it fills the stat up to that limit (AE_AddCostAttr_Float.c:52-59), asking only for
+    /// what is left below it (AE_AddCostAttr_Float.c:71-79), then calls CostAttrValue on its target
+    /// (AE_AddCostAttr_Float.c:91). What such a change adds depends on where the stat started, so it is marked.
+    /// </summary>
+    private static void BeforeFill(AE_AddCostAttr_Float __instance)
+    {
+        if (IsDormant) return;
+
+        try
+        {
+            _fillingAttr = __instance.MaxValue != -1 ? __instance.NameAttr : null;
+        }
+        catch (Exception ex)
+        {
+            Fail("before a fill effect", ex);
+        }
+    }
+
+    /// <summary>Run returns early when the stat is already at the limit (AE_AddCostAttr_Float.c:76-77); nothing is left marked.</summary>
+    private static void AfterFill() => _fillingAttr = null;
 
     /// <summary>
     /// Notes which furniture function a furniture recipe's product chips come from, picked the way the game picks it
@@ -324,13 +447,47 @@ internal static class MeasureHooks
         return funcs;
     }
 
-    /// <summary>ActionManager.GetActionSource (ActionManager.c:3116) and AgentActionSource.CurrentAction (AgentActionSource.c:15).</summary>
-    private static AgentAction? CurrentAction()
+    /// <summary>
+    /// Whether a change can count toward a measurement (TickRule): an action's own effect sourced to furniture, or a
+    /// reward-shaped change while an end-of-use reward is being given. Never a change one stat makes to another.
+    /// </summary>
+    private static bool MayCount(EffectArgsType argsType, bool isDependency, VitalityChangeSourceType sourceType)
     {
-        var actions = GameSingleton.Existing<BattleLogicWorld>()?._ActionManager;
+        if (isDependency) return false;
+        if (argsType == EffectArgsType.Action && sourceType == VitalityChangeSourceType.Furniture) return true;
 
-        return actions?.GetActionSource(Interlocked.Read(ref _heroId))?.CurrentAction;
+        return argsType == EffectArgsType.None && sourceType == VitalityChangeSourceType.DynamicEvent && Volatile.Read(ref _isRewardOpen) != 0;
     }
+
+    /// <summary>ActionManager.GetActionSource (ActionManager.c:3116) and AgentActionSource.CurrentAction (AgentActionSource.c:15).</summary>
+    private static AgentAction? CurrentAction() => HeroActions()?.CurrentAction;
+
+    private static AgentActionSource? HeroActions() =>
+        GameSingleton.Existing<BattleLogicWorld>()?._ActionManager?.GetActionSource(Interlocked.Read(ref _heroId));
+
+    /// <summary>
+    /// After RemoveAction: it cleared the current action, and kept the press because the next queued action belongs to
+    /// it (ActionManager.c:6792); ActionManager.Update starts that one on a later frame (ActionManager.c:10033).
+    /// </summary>
+    private static bool PressGoesOn(long press)
+    {
+        if (press <= 0) return false;
+
+        var actions = HeroActions();
+        var queued = actions?.ActionList;
+
+        if (actions == null || actions.CurrentAction != null || queued == null || queued.Count == 0) return false;
+
+        return queued[0]?.ParentId == press;
+    }
+
+    /// <summary>
+    /// The furniture config of the action's target, found the way TryExecuteFurnitureFuncReward finds it:
+    /// AgentManager.GetAgent (AgentManager.c:3187, called at ActionManager.c:8326), a Furniture, its AgentConfigId
+    /// (ActionManager.c:8344). 0 when the target is no furniture.
+    /// </summary>
+    private static int FurnitureOf(long targetId) =>
+        GameSingleton.Existing<BattleLogicWorld>()?._AgentManager?.GetAgent(targetId)?.TryCast<Furniture>()?.AgentConfigId ?? 0;
 
     /// <summary>GameTimeManager.GetTotalSeconds (GameTimeManager.c:735), the in-game clock; -1 when there is none.</summary>
     private static int GameSeconds() => GameSingleton.Existing<BattleLogicWorld>()?._GameTimeManager?.GetTotalSeconds() ?? -1;

@@ -13,13 +13,15 @@ public sealed class Measurer
     private readonly UseTracker _tracker = new();
     private readonly MeasureStore _store;
     private readonly Action<string> _trace;
+    private readonly bool _isTracing;
     private readonly HashSet<MeasureSite> _changed = new();
 
-    /// <param name="trace">Where trace lines go; null for none.</param>
+    /// <param name="trace">Where trace lines go; null for none, and then no cost line is even built.</param>
     public Measurer(MeasureStore store, Action<string>? trace = null)
     {
         _store = store;
         _trace = trace ?? (_ => { });
+        _isTracing = trace != null;
     }
 
     public MeasureStore Store => _store;
@@ -28,18 +30,35 @@ public sealed class Measurer
     {
         var verdict = _tracker.Tick(call);
 
-        _trace(TraceText.Cost(call, verdict));
+        // Called for every stat change of the character: the line is long, so it is built only for a trace.
+        if (_isTracing) _trace(TraceText.Cost(call, verdict));
 
         return verdict;
     }
 
     public void Play(UseStart use)
     {
+        if (_tracker.Held is { } held && !use.Continues(held) && _tracker.FinishHeld() is { } finished) Ended(finished, use.At);
+
+        var isContinued = _tracker.Held != null;
         var open = _tracker.Start(use);
 
         if (open != null) _trace(TraceText.Discarded(open));
 
-        _trace(TraceText.Start(use));
+        _trace(isContinued ? TraceText.Continued(use) : TraceText.Start(use));
+    }
+
+    /// <summary>The end-of-use reward of the action actionId is being given; see UseTracker.OpenReward.</summary>
+    public void OpenReward(int actionId, MeasureSite site)
+    {
+        _tracker.OpenReward(actionId, site);
+        _trace(TraceText.RewardOpened(actionId, site));
+    }
+
+    public void CloseReward()
+    {
+        _tracker.CloseReward();
+        _trace(TraceText.RewardClosed);
     }
 
     /// <summary>
@@ -48,8 +67,9 @@ public sealed class Measurer
     /// </summary>
     /// <param name="actionId">The action config id the character's action component held when the action was removed.</param>
     /// <param name="at">The in-game clock in seconds, -1 when unknown; for the trace only.</param>
+    /// <param name="pressGoesOn">True when the next queued action belongs to the same button press; see UseTracker.End.</param>
     /// <returns>Null when no use ended.</returns>
-    public UseOutcome? End(int actionId, bool isBroken, int at)
+    public UseOutcome? End(int actionId, bool isBroken, int at, bool pressGoesOn = false)
     {
         if (_tracker.Current is not { } open)
         {
@@ -65,13 +85,9 @@ public sealed class Measurer
             return null;
         }
 
-        var outcome = _tracker.End(isBroken);
+        var outcome = _tracker.End(isBroken, pressGoesOn);
 
-        if (outcome == null) return null;
-
-        _trace(TraceText.End(outcome, at));
-
-        if (!outcome.IsDiscarded) Keep(outcome.Samples);
+        if (outcome != null) Ended(outcome, at);
 
         return outcome;
     }
@@ -84,6 +100,13 @@ public sealed class Measurer
         _changed.Clear();
 
         return changed;
+    }
+
+    private void Ended(UseOutcome outcome, int at)
+    {
+        _trace(TraceText.End(outcome, at));
+
+        if (!outcome.IsDiscarded) Keep(outcome.Samples);
     }
 
     private void Keep(IEnumerable<UseSample> samples)

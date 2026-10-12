@@ -42,7 +42,7 @@ Measurements are kept before your character's modifiers and scaled by the modifi
 
 **It is a bit finicky.** The numbers learn as you play: an action shows the estimate until you have finished it once, and a range can widen as you use it more. Long actions that end on their own show a total per use, not per hour: what the whole use did. If you want the estimates only, turn `Measure` off.
 
-The measurements are saved in `BepInEx\exact-numbers-measured.json` and loaded the next time you start the game. They are kept per game version, because a game update can change what an action does. Delete the file to start measuring from scratch. If the file is damaged, the mod renames it to `exact-numbers-measured.json.bad`, says so in the log, and starts fresh.
+The measurements are saved in `BepInEx\exact-numbers-measured.json` and loaded the next time you start the game. They are kept per game version, because a game update can change what an action does. Delete the file to start measuring from scratch. If the file is damaged, the mod renames it to `exact-numbers-measured.json.bad`, says so in the log, and starts fresh. If it cannot rename it, nothing is saved until you restart the game, so the old file is never overwritten.
 
 Please also keep in mind:
 
@@ -83,7 +83,7 @@ Built against BepInEx `6.0.0-be.788`.
 
 Check `BepInEx\LogOutput.log` for a line starting `===== Exact Numbers 0.2.0 started`. It says whether the mod is on, whether modifiers are applied, and whether measuring and the trace log are on. After it you should see `measurements loaded for game version` (or `no measurements file yet` on the first start) and `measuring furniture functions`, then `listening for page script messages`, then `page script ready` once the game's UI is up, and `modifiers now:` with your character's ratios once a world loads.
 
-The same lines are in `BepInEx\exact-numbers.log`, which survives restarts. With `TraceLog` on (the default), that file also gets a line for every stat change of your character, every use the mod measured, and what it read for each menu button. It is kept under about 10 MB: past that, it is moved to `exact-numbers.log.1` and started again.
+The same lines are in `BepInEx\exact-numbers.log`, which survives restarts. With `TraceLog` on (the default), that file also gets a line for every stat change of your character, every use the mod measured, and what it read for each menu button; those lines are written in a batch every few seconds. It is kept under about 10 MB: past that, it is moved to `exact-numbers.log.1` and started again.
 
 If the tooltips still show marks, look in the log for a line starting `could not` or `page said:`. If numbers stay `~` after you have used an action, look for `measuring stopped`. Those name what the mod could not reach.
 

@@ -30,7 +30,7 @@ public static class ChipLabels
     public const string EstimateTitle = "~ = the game's listed estimate, not the exact amount";
 
     /// <summary>Added to the estimate's hover text when measuring found the function fills a stat up to a limit.</summary>
-    public const string FillToNote = "; measured amounts vary because this tops the stat up to a limit, so no single number is exact";
+    public const string FillToNote = "; this tops the stat up to a limit, so what it adds depends on where the stat starts and no single number is exact";
 
     public const string RangeJoin = " to ";
     public const string PerHourSuffix = "/h";

@@ -48,7 +48,13 @@ public static class MeasureFile
 
             foreach (var entry in versions.EnumerateObject())
             {
-                if (entry.Name == version) load = ReadVersion(entry.Value);
+                if (entry.Name == version)
+                {
+                    load = ReadVersion(entry.Value);
+
+                    // This version's measurements in a shape the mod cannot read: starting over would overwrite them.
+                    if (load == null) return null;
+                }
                 else if (others.Count < MaxOtherVersions && entry.Value.ValueKind == JsonValueKind.Object) others.Add(new OtherVersion(entry.Name, entry.Value.GetRawText()));
             }
 
@@ -85,13 +91,14 @@ public static class MeasureFile
         return Encoding.UTF8.GetString(buffer.ToArray());
     }
 
-    private static MeasureLoad ReadVersion(JsonElement data)
+    /// <returns>Null when the entry is not an object with a records array.</returns>
+    private static MeasureLoad? ReadVersion(JsonElement data)
     {
         var seq = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("seq", out var seqValue) && seqValue.ValueKind == JsonValueKind.Number && seqValue.TryGetInt64(out var read) ? read : 0;
         var store = new MeasureStore(seq);
         var skipped = 0;
 
-        if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("records", out var records) || records.ValueKind != JsonValueKind.Array) return new MeasureLoad(store, Array.Empty<OtherVersion>(), 0);
+        if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("records", out var records) || records.ValueKind != JsonValueKind.Array) return null;
 
         foreach (var element in records.EnumerateArray())
         {

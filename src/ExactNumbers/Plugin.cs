@@ -41,7 +41,9 @@ public sealed class Plugin : BasePlugin
     /// <returns>Null when the stat hooks could not be applied; the chips then show the game's estimates.</returns>
     private static Measuring? StartMeasuring(Harmony harmony, ExactLog log, bool traceLog)
     {
-        Action<string> trace = traceLog ? log.WriteFileOnly : _ => { };
+        var buffered = traceLog ? new BufferedTrace(log) : null;
+        Action<string>? trace = buffered == null ? null : buffered.Write;
+        Action flushTrace = buffered == null ? () => { } : buffered.Flush;
 
         // Measurements are kept per game version: a patch can change what a function does.
         var version = UnityEngine.Application.version ?? "unknown";
@@ -49,8 +51,13 @@ public sealed class Plugin : BasePlugin
         var measurer = new Measurer(file.Load(), trace);
         var recipes = new RecipeSites();
 
-        if (!MeasureHooks.Apply(harmony, measurer, recipes, log.Write, trace)) return null;
+        if (!MeasureHooks.Apply(harmony, measurer, recipes, log.Write, trace))
+        {
+            flushTrace();
 
-        return new Measuring(measurer, file, recipes, trace);
+            return null;
+        }
+
+        return new Measuring(measurer, file, recipes, trace ?? (_ => { }), flushTrace);
     }
 }

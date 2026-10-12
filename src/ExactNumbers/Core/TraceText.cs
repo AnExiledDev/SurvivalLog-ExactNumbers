@@ -30,15 +30,25 @@ public static class TraceText
         " action=" + Whole(call.ActionId) +
         " func=" + Whole(call.FuncId) +
         " time=" + Whole(call.GameSeconds) +
+        " fill=" + Flag(call.IsFillTo) +
         " -> " + verdict;
 
     public static string Start(UseStart use) => "use start " + Use(use);
+
+    public static string Continued(UseStart use) => "use start, same press as the last action: " + Use(use);
+
+    public static string RewardOpened(int actionId, MeasureSite site) => "reward start action=" + Whole(actionId) + " site=" + site;
+
+    public const string RewardClosed = "reward end";
+
+    public static string Dropped(int count) =>
+        "trace: " + Whole(count) + " lines dropped, more than " + Whole(TraceBuffer.MaxLines) + " came between two saves";
 
     public static string Discarded(UseStart use) => "use discarded, another action started before it ended: " + Use(use);
 
     public static string End(UseOutcome outcome, int at)
     {
-        var result = outcome.IsDiscarded ? "discarded" : "kept " + outcome.Samples.Count;
+        var result = outcome.IsHeld ? "held for the press's next action" : outcome.IsDiscarded ? "discarded" : "kept " + outcome.Samples.Count;
         var dropped = outcome.Dropped.Count == 0 ? "" : "; dropped: " + string.Join(", ", outcome.Dropped);
 
         return "use end " + Use(outcome.Use) + " broken=" + Flag(outcome.IsBroken) + " end=" + Whole(at) + " -> " + result + dropped;
@@ -77,6 +87,7 @@ public static class TraceText
         " target=" + Whole(use.Target) +
         " func=" + Whole(use.FuncId) +
         " indefinite=" + Flag(use.IsIndefinite) +
+        " press=" + Whole(use.Press) +
         " time=" + Whole(use.At);
 
     private static string Number(double? value) => value is { } known ? known.ToString("0.####", CultureInfo.InvariantCulture) : None;

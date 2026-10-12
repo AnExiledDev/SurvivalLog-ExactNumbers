@@ -17,7 +17,8 @@ public readonly record struct MeasuredAmount(double Amount, double Reach);
 /// <summary>
 /// Everything measured for one stat of one furniture function, before the character's ratio. Low and High are the
 /// smallest and largest amounts seen. IsFillTo marks a function that tops a stat up to a limit instead of adding a fixed
-/// amount, so its amount depends on where the stat started and no single number is right for it. Seq orders records by
+/// amount, so its amount depends on where the stat started and no single number is right for it; one use of an effect
+/// that fills to a limit marks it, even when the amounts seen so far agree. Seq orders records by
 /// last change, so the oldest can be dropped.
 /// </summary>
 public sealed record MeasureRecord(
@@ -90,7 +91,7 @@ public sealed class MeasureStore
         var seen = new MeasuredAmount(sample.Amount, sample.Reach);
         var old = Find(sample.Key);
         var record = old == null || old.Kind != kind
-            ? new MeasureRecord(sample.Key, kind, 1, sample.Amount, sample.Amount, false, sample.EndedAtMax, new[] { seen }, ++_seq)
+            ? new MeasureRecord(sample.Key, kind, 1, sample.Amount, sample.Amount, sample.IsFillTo, sample.EndedAtMax, new[] { seen }, ++_seq)
             : Grow(old, sample, seen);
 
         Put(record);
@@ -124,12 +125,13 @@ public sealed class MeasureStore
             Seq = ++_seq,
         };
 
-        return grown with { IsFillTo = old.IsFillTo || IsFillTo(grown) };
+        return grown with { IsFillTo = old.IsFillTo || sample.IsFillTo || IsFillTo(grown) };
     }
 
     /// <summary>
-    /// Amounts that vary while the stat ended at its maximum, or two different amounts that aimed at the same level: the
-    /// function fills the stat up to a limit (AE_AddCostAttr_Float.c:58-64) rather than adding a set amount.
+    /// For a fill-to effect the hooks did not see: amounts that vary while the stat ended at its maximum, or two
+    /// different amounts that aimed at the same level, mean the function fills the stat up to a limit
+    /// (AE_AddCostAttr_Float.c:71-79) rather than adding a set amount.
     /// </summary>
     private static bool IsFillTo(MeasureRecord record)
     {
