@@ -29,4 +29,7 @@ public static class CostRatio
 
     /// <summary>The change the game applies for a preview amount: (ratio + 1) * amount, in the game's float arithmetic.</summary>
     public static float Apply(float ratio, int amount) => (ratio + 1f) * amount;
+
+    /// <summary>The same scaling for a measured amount, which is not a whole number.</summary>
+    public static double Apply(float ratio, double amount) => (ratio + 1d) * amount;
 }

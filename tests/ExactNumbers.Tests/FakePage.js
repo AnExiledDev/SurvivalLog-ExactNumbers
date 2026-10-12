@@ -238,10 +238,11 @@ function menuChip(pageId, button, chip) {
   return doc.getElementById('menu-container').querySelectorAll('.tip-attrs')[button].children[chip].lastElementChild.textContent;
 }
 
-// The crafting table: buildAttrChips(preview) draws a .tip-attrs for a preview (ToolTable.html:3445), and
-// showRecipeTooltip(event, recipe) refills the shared #recipe-tooltip with the recipe's product chips and shows it
-// (3491). Both are page-wide, so the page's own calls go through the window. draws: preview -> the chips the game draws
-// for it. builds counts the recipe tooltips built.
+// The crafting table: buildAttrChips(preview) draws a .tip-attrs for a preview (ToolTable.html:3445),
+// buildRecipeProduct(recipe) makes the product object a tooltip is shown with (3420), and
+// showRecipeTooltip(event, materials, craftLockLine, product) refills the shared #recipe-tooltip with the product's
+// chips and shows it (3491, chips at 3540). All are page-wide, so the page's own calls go through the window. draws:
+// preview -> the chips the game draws for it. builds counts the recipe tooltips built.
 function openToolTable(draws) {
   var doc = new FakeDocument();
   var win = pageWindow();
@@ -253,10 +254,19 @@ function openToolTable(draws) {
   win.buildAttrChips = function (preview) {
     return drawChips(new FakeElement('div', 'tip-attrs'), draws[preview] || []);
   };
-  win.showRecipeTooltip = function (event, recipe) {
+  win.products = {};
+  win.buildRecipeProduct = function (recipe) {
+    return { name: recipe.name || '', attrDelta: recipe.productAttrDelta || '' };
+  };
+  // more: further chip rows, which the real page does not draw, to hold the script to waiting for every number in a
+  // tooltip before building it again.
+  win.showRecipeTooltip = function (event, materials, craftLockLine, product) {
     win.builds += 1;
     tooltip.empty();
-    recipe.previews.forEach(function (preview) { tooltip.appendChild(win.buildAttrChips(preview)); });
+
+    if (product && product.attrDelta) tooltip.appendChild(win.buildAttrChips(product.attrDelta));
+
+    ((product && product.more) || []).forEach(function (preview) { tooltip.appendChild(win.buildAttrChips(preview)); });
     tooltip.style.display = 'block';
   };
   // The page reuses the same tooltip element for a material's tooltip (ToolTable.html:3624).
@@ -273,8 +283,25 @@ function toolTable() {
   return document.getElementById('ToolTable').contentWindow;
 }
 
+// The recipe list as the page draws it from a recipe message: each row keeps the product built from its recipe
+// (buildRecipeItem, ToolTable.html:3271). recipes: [{recipeKey, productAttrDelta}].
+function drawRecipes(recipes) {
+  var win = toolTable();
+
+  win.products = {};
+  recipes.forEach(function (recipe) { win.products[recipe.recipeKey] = win.buildRecipeProduct(recipe); });
+}
+
+// Hovering a recipe row of the list.
+function hoverProduct(recipeKey) {
+  var win = toolTable();
+
+  win.showRecipeTooltip({ clientX: 40, clientY: 50 }, [], '', win.products[recipeKey]);
+}
+
+// A tooltip for a product no recipe row was drawn for: the first preview as its chips, any others as further rows.
 function hoverRecipe(previews) {
-  toolTable().showRecipeTooltip({ clientX: 40, clientY: 50 }, { previews: previews });
+  toolTable().showRecipeTooltip({ clientX: 40, clientY: 50 }, [], '', { attrDelta: previews[0], more: previews.slice(1) });
 }
 
 function recipeChip(wrap, chip) {

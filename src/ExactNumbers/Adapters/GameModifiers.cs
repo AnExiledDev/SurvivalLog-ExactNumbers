@@ -20,6 +20,17 @@ internal sealed class GameModifiers
         (Stat.Vitality, AttrName.Vitality),
     };
 
+    /// <returns>The stat a tooltip chip shows for this attribute, or null for one no chip shows.</returns>
+    public static Stat? StatOf(AttrName name)
+    {
+        foreach (var (stat, statName) in Stats)
+        {
+            if (statName == name) return stat;
+        }
+
+        return null;
+    }
+
     private readonly Action<string> _log;
     private bool _hasReportedFailure;
 

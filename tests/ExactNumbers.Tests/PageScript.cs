@@ -7,21 +7,32 @@ namespace ExactNumbers.Tests;
 /// page.js exactly as the plugin embeds it, run in Jint on top of FakePage.js (Root.html with its page iframes, the
 /// vuplex bridge, an object menu and a crafting table). The plugin's side is the real core, as ExactSession uses it:
 /// what the script posts is parsed with PageCommand and answered from a LabelBook. Nothing is answered until a test
-/// says so, so a test can hold an answer in flight.
+/// says so, so a test can hold an answer in flight. With a measure store it answers as a measuring session does: game
+/// messages go through PageSites with the menu state and recipe sites the test sets.
 /// </summary>
 internal sealed class PageScript
 {
     private readonly Engine _engine = new();
-    private readonly LabelBook _book = new();
+    private readonly LabelBook _book;
+    private readonly bool _isMeasuring;
     private readonly Queue<PageCommand.Game> _games = new();
     private readonly Queue<PageCommand.Need> _needs = new();
 
-    public PageScript()
+    /// <param name="measured">Null answers as with measuring off, as 0.1.0 did.</param>
+    public PageScript(MeasureStore? measured = null)
     {
+        _book = new LabelBook(measured);
+        _isMeasuring = measured != null;
         _engine.Execute(Resource("ExactNumbers.Tests.FakePage.js"));
         _engine.Execute(Resource("ExactNumbers.page.js"));
         Hear();
     }
+
+    /// <summary>The object menu state the plugin reads when it answers a menu message; measuring only.</summary>
+    public MenuState? Menu { get; set; }
+
+    /// <summary>The recipe functions the crafting hook noted; measuring only.</summary>
+    public RecipeSites Recipes { get; } = new();
 
     /// <summary>Every game message the script passed on to the plugin, as Root.html received it.</summary>
     public List<string> PassedOn { get; } = new();
@@ -58,20 +69,43 @@ internal sealed class PageScript
 
     public int RecipeBuilds => (int)Number("toolTable().builds");
 
+    /// <param name="recipes">A JavaScript list of {recipeKey, productAttrDelta}, drawn as the recipe list.</param>
+    public void DrawRecipes(string recipes) => Run($"drawRecipes({recipes})");
+
+    public void HoverProduct(string recipeKey) => Run($"hoverProduct({JsText.Literal(recipeKey)})");
+
+    /// <summary>The label keys the script asked numbers for and has not been answered for yet.</summary>
+    public IReadOnlyList<string> Needs => _needs.Select(need => need.Key).ToList();
+
     /// <summary>Answers every game message passed on so far, in order, as the plugin does.</summary>
     public void AnswerGameMessages()
     {
-        while (_games.TryDequeue(out var game)) Run("window.__slexactnumbers.takeGame(" + _book.AnswerGame(game.Seq, GameMessage.Read(game.Message)) + ")");
+        while (_games.TryDequeue(out var game)) Run("window.__slexactnumbers.takeGame(" + Answer(game) + ")");
     }
 
     /// <summary>Answers every request for numbers so far, as the plugin does.</summary>
     public void AnswerNeeds()
     {
-        while (_needs.TryDequeue(out var need)) Run("window.__slexactnumbers.setLabels(" + _book.Answer(need.Preview) + ")");
+        while (_needs.TryDequeue(out var need)) Run("window.__slexactnumbers.setLabels(" + _book.Answer(need.Key) + ")");
     }
 
-    /// <summary>Sends one preview's numbers unasked, as the plugin's answer to someone else's request would.</summary>
-    public void SendLabels(string preview) => Run("window.__slexactnumbers.setLabels(" + _book.Answer(preview) + ")");
+    /// <summary>Sends one key's numbers unasked, as the plugin's answer to someone else's request would.</summary>
+    public void SendLabels(string key) => Run("window.__slexactnumbers.setLabels(" + _book.Answer(key) + ")");
+
+    /// <summary>Resends the numbers of these functions' keys the page holds, as the session does after a new measurement.</summary>
+    public void Remeasured(params MeasureSite[] sites)
+    {
+        var resend = _book.Remeasured(sites);
+
+        if (resend != null) Run("window.__slexactnumbers.setLabels(" + resend + ")");
+    }
+
+    private string Answer(PageCommand.Game game)
+    {
+        var facts = GameMessage.Read(game.Message);
+
+        return _isMeasuring ? _book.AnswerGame(game.Seq, PageSites.Answer(facts, Menu, Recipes)) : _book.AnswerGame(game.Seq, facts);
+    }
 
     /// <summary>Takes what the script posted since the last look.</summary>
     private void Hear()

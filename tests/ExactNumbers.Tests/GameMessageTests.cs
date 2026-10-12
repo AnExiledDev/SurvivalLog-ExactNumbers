@@ -19,6 +19,24 @@ public class GameMessageTests
         Assert.Equal(new[] { "Satiety:-12", "", "Stamina:-20;Morale:+4" }, facts.Menu!.Previews);
     }
 
+    /// <summary>SelectMenu.html never reads one, so whether the game sends it is an open question the trace log answers.</summary>
+    [Fact]
+    public void A_buttons_function_id_is_read_when_the_menu_message_carries_one()
+    {
+        var facts = GameMessage.Read(MenuMessage("{\"btnList\":[{\"attrDelta\":\"Satiety:-12\",\"funcId\":301},{\"attrDelta\":\"Stamina:-20\"},{\"funcId\":\"7\"},{\"funcId\":0},{\"funcId\":1.5}]}"));
+
+        Assert.Equal(new int?[] { 301, null, null, null, null }, facts.Menu!.FuncIds);
+    }
+
+    [Fact]
+    public void A_recipe_products_preview_is_read_with_the_recipe_key_the_page_knows_it_by()
+    {
+        var facts = GameMessage.Read(PageMessage("ToolTable", "WebUI_ToolTable_RecipeMsg",
+            "{\"recipes\":[{\"recipeKey\":\"r1\",\"productAttrDelta\":\"Satiety:+30\"},{\"recipeKey\":12,\"productAttrDelta\":\"Morale:+2\"},{\"productAttrDelta\":\"Stamina:+5\"},{\"recipeKey\":\"r4\",\"productAttrDelta\":\"\"}]}"));
+
+        Assert.Equal(new[] { new RecipeProduct("r1", "Satiety:+30"), new RecipeProduct("12", "Morale:+2") }, facts.Products);
+    }
+
     [Fact]
     public void A_menu_belongs_to_the_page_the_game_addressed_it_to()
     {

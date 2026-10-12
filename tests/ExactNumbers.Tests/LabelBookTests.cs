@@ -103,13 +103,13 @@ public class LabelBookTests
     {
         var answer = new LabelBook().AnswerGame(3, Menu("SelectMenu_7", "Satiety:-12", ""));
 
-        Assert.StartsWith("{\"seq\":3,\"menu\":{\"page\":\"SelectMenu_7\",\"previews\":[\"Satiety:-12\",\"\"]},\"labels\":{\"Satiety:-12\":[{", answer);
+        Assert.StartsWith("{\"seq\":3,\"menu\":{\"page\":\"SelectMenu_7\",\"keys\":[\"Satiety:-12\",\"\"]},\"recipes\":{},\"labels\":{\"Satiety:-12\":[{", answer);
     }
 
     [Fact]
     public void A_message_that_held_nothing_is_still_answered_with_its_number_so_menus_stop_waiting()
     {
-        Assert.Equal("{\"seq\":9,\"menu\":null,\"labels\":{}}", new LabelBook().AnswerGame(9, GameFacts.Nothing));
+        Assert.Equal("{\"seq\":9,\"menu\":null,\"recipes\":{},\"labels\":{}}", new LabelBook().AnswerGame(9, GameFacts.Nothing));
     }
 
     [Fact]
@@ -145,7 +145,7 @@ public class LabelBookTests
 
         book.AnswerGame(1, Menu("SelectMenu", "Satiety:-12"));
 
-        Assert.Equal("{\"seq\":2,\"menu\":{\"page\":\"SelectMenu\",\"previews\":[\"Satiety:-12\"]},\"labels\":{}}", book.AnswerGame(2, Menu("SelectMenu", "Satiety:-12")));
+        Assert.Equal("{\"seq\":2,\"menu\":{\"page\":\"SelectMenu\",\"keys\":[\"Satiety:-12\"]},\"recipes\":{},\"labels\":{}}", book.AnswerGame(2, Menu("SelectMenu", "Satiety:-12")));
     }
 
     [Fact]
@@ -165,5 +165,59 @@ public class LabelBookTests
         var answer = new LabelBook().AnswerGame(1, Menu("x\"</script>", "Satiety:-12"));
 
         Assert.Contains("\"page\":\"x\\\"\\u003c/script>\"", answer);
+    }
+
+    // ===== Measured numbers =====
+
+    private static readonly MeasureSite Bed = new(500, 7);
+
+    private static UseSample BedSatiety(double amount) => new(new MeasureKey(Bed, Stat.Satiety), false, amount, 0, false);
+
+    [Fact]
+    public void A_key_with_a_measured_function_is_answered_with_the_measured_number()
+    {
+        var store = new MeasureStore();
+
+        store.Add(BedSatiety(-10));
+
+        Assert.Contains("\"s\":\"" + Minus + "10\"", new LabelBook(store).Answer("@500/7/Satiety:-12"));
+    }
+
+    /// <summary>A new measurement changes only that function's chips; the page keeps every other number it holds.</summary>
+    [Fact]
+    public void A_new_measurement_resends_only_the_keys_of_its_furniture_function()
+    {
+        var store = new MeasureStore();
+        var book = new LabelBook(store);
+
+        book.Answer("@500/7/Satiety:-12");
+        book.Answer("@500/8/Satiety:-12");
+        book.Answer("Satiety:-12");
+        store.Add(BedSatiety(-10));
+
+        var resend = book.Remeasured(new[] { Bed });
+
+        Assert.NotNull(resend);
+        Assert.Contains("\"@500/7/Satiety:-12\":[{\"k\":\"cost\",\"v\":\"" + Minus + Minus + "\",\"s\":\"" + Minus + "10\"", resend);
+        Assert.DoesNotContain("@500/8/", resend);
+        Assert.DoesNotContain("\"Satiety:-12\":", resend);
+    }
+
+    [Fact]
+    public void A_new_measurement_for_a_function_the_page_holds_no_numbers_for_resends_nothing()
+    {
+        var book = new LabelBook(new MeasureStore());
+
+        book.Answer("Satiety:-12");
+
+        Assert.Null(book.Remeasured(new[] { Bed }));
+    }
+
+    [Fact]
+    public void A_game_answer_tells_the_page_the_key_of_each_mapped_recipe()
+    {
+        var answer = new GameAnswer(null, new Dictionary<string, string> { ["r1"] = "@500/7/Satiety:+30" }, new[] { "@500/7/Satiety:+30" }, Array.Empty<MenuRead>());
+
+        Assert.StartsWith("{\"seq\":4,\"menu\":null,\"recipes\":{\"r1\":\"@500/7/Satiety:+30\"},\"labels\":{\"@500/7/Satiety:+30\":[{", new LabelBook().AnswerGame(4, answer));
     }
 }

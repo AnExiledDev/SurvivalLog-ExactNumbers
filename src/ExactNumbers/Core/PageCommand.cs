@@ -14,6 +14,9 @@ public abstract record PageCommand
     /// <summary>Longer than any preview text in the game by far; a longer one is not a preview and is not answered.</summary>
     public const int MaxPreviewLength = 1000;
 
+    /// <summary>A need names a label key: a preview, with "@furniture/func/" in front when its function is known.</summary>
+    public const int MaxKeyLength = MaxPreviewLength + 32;
+
     private const string NeedVerb = "need|";
     private const string GameVerb = "game|";
 
@@ -27,8 +30,8 @@ public abstract record PageCommand
     /// <summary>The page has no script, usually because the web view reloaded.</summary>
     public sealed record NoScript : PageCommand;
 
-    /// <summary>A tooltip drew chips for this preview text and the page wants their numbers.</summary>
-    public sealed record Need(string Preview) : PageCommand;
+    /// <summary>A tooltip drew chips for this label key (see LabelKey) and the page wants their numbers.</summary>
+    public sealed record Need(string Key) : PageCommand;
 
     /// <summary>
     /// A message the game sent one of its pages, passed on by the page script as Root.html received it. Seq is the
@@ -47,12 +50,12 @@ public abstract record PageCommand
 
         var body = message.Substring(Prefix.Length);
 
-        // The preview is the rest of the message, whatever it holds, so it reaches the plugin exactly as the page saw it.
+        // The key is the rest of the message, whatever it holds, so it reaches the plugin exactly as the page saw it.
         if (body.StartsWith(NeedVerb, StringComparison.Ordinal))
         {
-            var preview = body.Substring(NeedVerb.Length);
+            var key = body.Substring(NeedVerb.Length);
 
-            return preview.Length is > 0 and <= MaxPreviewLength ? new Need(preview) : new Unknown(message);
+            return key.Length is > 0 and <= MaxKeyLength ? new Need(key) : new Unknown(message);
         }
 
         if (body.StartsWith(GameVerb, StringComparison.Ordinal)) return ParseGame(body.Substring(GameVerb.Length));

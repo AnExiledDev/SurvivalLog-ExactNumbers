@@ -226,4 +226,117 @@ public class PageScriptTests
         Assert.Equal(1, page.RecipeBuilds);
         Assert.Equal(Estimate(-12), page.RecipeChip(0, 0));
     }
+
+    // ===== Measured numbers =====
+
+    private const int Bench = 600;
+    private const int Brew = 40;
+
+    private static string Gain(string drawn) => "{k:'gain',v:" + JsText.Literal(drawn) + "}";
+
+    private static string KeyedRecipeList(string recipeKey, string preview) =>
+        "{\"show\":true,\"recipes\":[{\"recipeKey\":" + JsText.Literal(recipeKey) + ",\"productAttrDelta\":" + JsText.Literal(preview) + "}]}";
+
+    private static MeasureStore Measured(MeasureSite site, Stat stat, double amount) => Uses.Store(Uses.Sample(amount, site: site, stat: stat));
+
+    /// <summary>A crafting table whose recipe r1 was noted as made by the bench's brewing function, which measured +25.</summary>
+    private static PageScript MeasuredTable(string draws)
+    {
+        var page = new PageScript(Measured(new MeasureSite(Bench, Brew), Stat.Satiety, 25));
+
+        page.Recipes.Note("r1", new RecipeSite(new MeasureSite(Bench, Brew), "Satiety:+30"));
+        page.OpenToolTable(draws);
+
+        return page;
+    }
+
+    /// <summary>Two buttons can list the same preview; each must show its own function's number, never the other's.</summary>
+    [Fact]
+    public void Each_menu_button_shows_the_measurement_of_its_own_function()
+    {
+        var page = new PageScript(Measured(new MeasureSite(500, 301), Stat.Satiety, -10))
+        {
+            Menu = new MenuState(500, new[] { new MenuButton(301, "Satiety:-12"), new MenuButton(302, "Satiety:-12") })
+        };
+
+        page.GameSends("SelectMenu", GameMessage.MenuMessage, ButtonList("Satiety:-12", "Satiety:-12"));
+        page.OpenMenu("SelectMenu", Button(Cost(TwoCostMarks)), Button(Cost(TwoCostMarks)));
+        page.Poll();
+        page.AnswerGameMessages();
+
+        Assert.Equal(Minus + "10", page.MenuChip("SelectMenu", 0, 0));
+        Assert.Equal(Estimate(-12), page.MenuChip("SelectMenu", 1, 0));
+        Assert.Empty(page.Notes);
+    }
+
+    /// <summary>A use finished while its menu is open; the chip already rewritten to the estimate takes the measured number.</summary>
+    [Fact]
+    public void A_new_measurement_updates_a_menu_already_on_screen()
+    {
+        var store = new MeasureStore();
+        var page = new PageScript(store) { Menu = new MenuState(500, new[] { new MenuButton(301, "Satiety:-12") }) };
+
+        page.GameSends("SelectMenu", GameMessage.MenuMessage, ButtonList("Satiety:-12"));
+        page.OpenMenu("SelectMenu", Button(Cost(TwoCostMarks)));
+        page.Poll();
+        page.AnswerGameMessages();
+
+        Assert.Equal(Estimate(-12), page.MenuChip("SelectMenu", 0, 0));
+
+        store.Add(Uses.Sample(-10, site: new MeasureSite(500, 301), stat: Stat.Satiety));
+        page.Remeasured(new MeasureSite(500, 301));
+
+        Assert.Equal(Minus + "10", page.MenuChip("SelectMenu", 0, 0));
+    }
+
+    [Fact]
+    public void A_crafted_products_chips_show_the_measurement_of_the_function_it_was_mapped_to()
+    {
+        var page = MeasuredTable("{'Satiety:+30':[" + Gain("++") + "]}");
+
+        page.Poll();
+        page.GameSends("ToolTable", Recipes, KeyedRecipeList("r1", "Satiety:+30"));
+        page.AnswerGameMessages();
+        page.DrawRecipes("[{recipeKey:'r1',productAttrDelta:'Satiety:+30'}]");
+        page.HoverProduct("r1");
+
+        Assert.Equal("+25", page.RecipeChip(0, 0));
+        Assert.Empty(page.Notes);
+    }
+
+    /// <summary>The key the plugin sent is for the preview it read; a product drawn with another preview is not that function's.</summary>
+    [Fact]
+    public void A_product_drawn_with_another_preview_than_its_mapped_key_is_asked_for_by_its_plain_preview()
+    {
+        var page = MeasuredTable("{'Satiety:+30':[" + Gain("++") + "],'Satiety:+20':[" + Gain("++") + "]}");
+
+        page.Poll();
+        page.GameSends("ToolTable", Recipes, KeyedRecipeList("r1", "Satiety:+30"));
+        page.AnswerGameMessages();
+        page.DrawRecipes("[{recipeKey:'r1',productAttrDelta:'Satiety:+20'}]");
+        page.HoverProduct("r1");
+
+        Assert.Equal(new[] { "Satiety:+20" }, page.Needs);
+
+        page.AnswerNeeds();
+
+        Assert.Equal(Estimate(20), page.RecipeChip(0, 0));
+    }
+
+    /// <summary>
+    /// The first time the table opens, the page draws its recipe list from the message before the plugin answers it and
+    /// before any poll, so the list must already be drawn through the wrappers that note each product's recipe.
+    /// </summary>
+    [Fact]
+    public void A_recipe_list_drawn_before_the_first_poll_still_has_its_products_mapped()
+    {
+        var page = MeasuredTable("{'Satiety:+30':[" + Gain("++") + "]}");
+
+        page.GameSends("ToolTable", Recipes, KeyedRecipeList("r1", "Satiety:+30"));
+        page.DrawRecipes("[{recipeKey:'r1',productAttrDelta:'Satiety:+30'}]");
+        page.AnswerGameMessages();
+        page.HoverProduct("r1");
+
+        Assert.Equal("+25", page.RecipeChip(0, 0));
+    }
 }

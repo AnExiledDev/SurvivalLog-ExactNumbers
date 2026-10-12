@@ -1,6 +1,8 @@
 // Exact Numbers' web half. Runs in Root.html, the document every game page iframe sits in. The game's tooltips draw a
 // stat chip per change in a preview text such as "Satiety:-12;Stamina:-20", showing only one to three + or - marks.
-// This swaps each mark for the number the plugin works out for that preview. Every decision about what a message
+// This swaps each mark for the number the plugin works out for that chip's label key: the preview itself, or, when the
+// plugin knows which furniture function the chips belong to, "@furniture/func/preview", so a function's measured numbers
+// are not put on another's chips that happen to share a preview. Every decision about what a message
 // means and what a chip should say is the plugin's; this script only carries messages and edits the DOM. It only
 // changes chip text, and only when the chip still shows exactly what the game drew for that preview, so a page a game
 // update reshaped stays as it was. Talks to the plugin through vuplex.postMessage("slmod|exactnumbers|<verb>") and is
@@ -29,15 +31,17 @@
   var SAME = 'same';
   var CHANGED = 'changed';
 
-  // Preview text -> list of {k: chip class, v: what the game drew, s: text to show or null, t: hover text or null},
-  // or null for a preview whose chips stay as the game drew them.
+  // Label key -> list of {k: chip class, v: what the game drew, s: text to show or null, t: hover text or null}, or
+  // null for a key whose chips stay as the game drew them.
   var labels = {};
   var askedAt = {};
   var reported = {};
-  // Object menu page id (its iframe's id) -> each button's preview, in button order, as the plugin read it.
+  // Object menu page id (its iframe's id) -> each button's label key, in button order, as the plugin read it.
   var menus = {};
+  // Crafting recipe key -> the label key of its product chips, for recipes whose furniture function the plugin knows.
+  var recipeKeys = {};
   // Game messages sent to the plugin, and the highest one it answered. While one is in flight, a menu may still hold
-  // the previous open's previews, so menus wait for the answer.
+  // the previous open's keys, so menus wait for the answer.
   var forwarded = 0;
   var answered = 0;
 
@@ -76,6 +80,14 @@
 
     if (typeof message !== 'string' || !has(PASSED_ON, messageName(message))) return;
 
+    // Root.html hands the message to its page with postMessage, so the page draws it later; patching now lets the
+    // crafting table's recipe list be drawn through the wrappers even the first time the table opens.
+    try {
+      patchPages(null);
+    } catch (e) {
+      diag('poll', e);
+    }
+
     forwarded += 1;
     send('game|' + forwarded + '|' + message);
   }
@@ -98,10 +110,19 @@
 
     if (data.menu) {
       forgetClosedMenus();
-      menus[data.menu.page] = data.menu.previews;
+      menus[data.menu.page] = data.menu.keys;
     }
 
+    takeRecipes(data.recipes);
     setLabels(data.labels);
+  }
+
+  function takeRecipes(data) {
+    data = data || {};
+
+    for (var recipeKey in data) {
+      if (has(data, recipeKey)) recipeKeys[recipeKey] = data[recipeKey];
+    }
   }
 
   function setLabels(data) {
@@ -109,10 +130,10 @@
 
     data = data || {};
 
-    for (var preview in data) {
-      if (has(data, preview)) {
-        labels[preview] = data[preview];
-        updated[preview] = true;
+    for (var key in data) {
+      if (has(data, key)) {
+        labels[key] = data[key];
+        updated[key] = true;
       }
     }
 
@@ -126,16 +147,16 @@
     }
   }
 
-  // Undefined while the plugin has not answered yet; the first sight of a preview asks, and so does every later sight
-  // once an ask has gone unanswered for a while.
-  function labelsFor(preview) {
-    if (has(labels, preview)) return labels[preview];
+  // Undefined while the plugin has not answered yet; the first sight of a key asks, and so does every later sight once
+  // an ask has gone unanswered for a while.
+  function labelsFor(key) {
+    if (has(labels, key)) return labels[key];
 
     var now = Date.now();
 
-    if (!askedAt[preview] || now - askedAt[preview] >= ASK_AGAIN_MS) {
-      askedAt[preview] = now;
-      send('need|' + preview);
+    if (!askedAt[key] || now - askedAt[key] >= ASK_AGAIN_MS) {
+      askedAt[key] = now;
+      send('need|' + key);
     }
 
     return undefined;
@@ -143,9 +164,9 @@
 
   // ===== Chips =====
 
-  // wrap is the .tip-attrs element the game built from preview. Every chip is checked before any is changed.
-  function rewrite(wrap, preview) {
-    var list = labelsFor(preview);
+  // wrap is the .tip-attrs element the game built from the preview in key. Every chip is checked before any is changed.
+  function rewrite(wrap, key) {
+    var list = labelsFor(key);
 
     if (list === undefined) return PENDING;
     if (!list || !wrap || wrap.children.length !== list.length) return SAME;
@@ -218,19 +239,19 @@
   }
 
   function applyMenu(win, container, pageId) {
-    var previews = menus[pageId];
+    var keys = menus[pageId];
 
-    if (!previews || answered < forwarded) return;
+    if (!keys || answered < forwarded) return;
 
     var buttons = container.querySelectorAll('.menu-btn[data-index]');
     var widened = [];
 
     for (var i = 0; i < buttons.length; i++) {
-      var preview = previews[parseInt(buttons[i].getAttribute('data-index'), 10)];
-      var wrap = preview ? buttons[i].querySelector('.tip-attrs') : null;
+      var key = keys[parseInt(buttons[i].getAttribute('data-index'), 10)];
+      var wrap = key ? buttons[i].querySelector('.tip-attrs') : null;
       var column = buttons[i].closest('.menu-col');
 
-      if (wrap && rewrite(wrap, preview) === CHANGED && column && widened.indexOf(column) < 0) widened.push(column);
+      if (wrap && rewrite(wrap, key) === CHANGED && column && widened.indexOf(column) < 0) widened.push(column);
     }
 
     for (var c = 0; c < widened.length; c++) placeMenuTooltips(win, widened[c]);
@@ -264,14 +285,19 @@
 
   // ===== Crafting table (ToolTable.html) =====
 
-  // buildAttrChips and showRecipeTooltip are page-wide functions there (ToolTable.html:3445, 3491), so the page's own
-  // calls go through these wrappers. The page measures and places the tooltip right after building it (3614-3618), so
-  // numbers are put in while it builds, and numbers that arrive later are put in by having the page build it again.
+  // buildAttrChips, showRecipeTooltip and buildRecipeProduct are page-wide functions there (ToolTable.html:3445, 3491,
+  // 3420), so the page's own calls go through these wrappers. The page measures and places the tooltip right after
+  // building it (3614-3618), so numbers are put in while it builds, and numbers that arrive later are put in by having
+  // the page build it again. The product chips are drawn from product.attrDelta (3540), and the product object is built
+  // from its recipe (3271, 3359), which is where the recipe key is noted on it, so its chips can be asked for by the key
+  // of the furniture function the plugin found for that recipe.
   function patchToolTable(win, doc, frame, updated) {
     var state = win[MARK];
 
     if (!state) {
       if (typeof win.buildAttrChips !== 'function' || typeof win.showRecipeTooltip !== 'function') return diag('crafting page', 'tooltip functions not found');
+
+      if (typeof win.buildRecipeProduct !== 'function') diag('crafting products', 'buildRecipeProduct not found, products keep the estimates');
 
       state = win[MARK] = { building: null, shown: null, x: 0, y: 0 };
       wrapToolTable(win, state);
@@ -287,18 +313,21 @@
   function wrapToolTable(win, state) {
     var build = win.buildAttrChips;
     var show = win.showRecipeTooltip;
+    var product = win.buildRecipeProduct;
 
     win.buildAttrChips = function (preview) {
       var wrap = build.apply(this, arguments);
 
       try {
         if (wrap && typeof preview === 'string') {
+          var key = chipKey(state.building, preview);
+
           if (state.building) {
-            state.building.previews.push(preview);
+            state.building.keys.push(key);
             state.building.wraps.push(wrap);
           }
 
-          rewrite(wrap, preview);
+          rewrite(wrap, key);
         }
       } catch (e) {
         diag('crafting chips', e);
@@ -307,8 +336,22 @@
       return wrap;
     };
 
+    if (typeof product === 'function') {
+      win.buildRecipeProduct = function (recipe) {
+        var built = product.apply(this, arguments);
+
+        try {
+          if (built && typeof built === 'object' && recipe && recipe.recipeKey != null && recipe.recipeKey !== '') built[MARK] = String(recipe.recipeKey);
+        } catch (e) {
+          diag('crafting products', e);
+        }
+
+        return built;
+      };
+    }
+
     win.showRecipeTooltip = function (event) {
-      var building = { rest: Array.prototype.slice.call(arguments, 1), previews: [], wraps: [] };
+      var building = { rest: Array.prototype.slice.call(arguments, 1), product: arguments[3], keys: [], wraps: [] };
 
       if (event) {
         state.x = event.clientX;
@@ -324,6 +367,19 @@
         state.shown = building;
       }
     };
+  }
+
+  // A product's chips go by the key the plugin sent for its recipe, but only while that key is for the preview being
+  // drawn; anything else goes by the plain preview.
+  function chipKey(building, preview) {
+    var product = building ? building.product : null;
+    var recipeKey = product && typeof product === 'object' ? product[MARK] : undefined;
+    var key = recipeKey !== undefined && has(recipeKeys, recipeKey) ? recipeKeys[recipeKey] : null;
+    var tail = '/' + preview;
+
+    if (typeof key !== 'string' || product.attrDelta !== preview || key.length <= tail.length) return preview;
+
+    return key.substring(key.length - tail.length) === tail ? key : preview;
   }
 
   // Only the tooltip on screen is built again, and only once every number in it is known, so it is built once. The
@@ -342,9 +398,9 @@
 
     var isTouched = false;
 
-    for (var i = 0; i < shown.previews.length; i++) {
-      if (!has(labels, shown.previews[i])) return;
-      if (updated[shown.previews[i]]) isTouched = true;
+    for (var i = 0; i < shown.keys.length; i++) {
+      if (!has(labels, shown.keys[i])) return;
+      if (updated[shown.keys[i]]) isTouched = true;
     }
 
     if (isTouched) win.showRecipeTooltip.apply(win, [{ clientX: state.x, clientY: state.y }].concat(shown.rest));
@@ -357,7 +413,7 @@
     { pattern: /ToolTable\.html/, patch: patchToolTable }
   ];
 
-  // updated holds the previews whose numbers just arrived, or is null on a plain poll.
+  // updated holds the label keys whose numbers just arrived, or is null on a plain poll.
   function patchPages(updated) {
     var frames = document.getElementsByTagName('iframe');
 
