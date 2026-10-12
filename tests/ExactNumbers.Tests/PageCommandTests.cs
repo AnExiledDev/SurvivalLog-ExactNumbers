@@ -37,6 +37,25 @@ public class PageCommandTests
     }
 
     [Fact]
+    public void A_passed_on_game_message_keeps_its_number_and_its_text_exactly()
+    {
+        var command = PageCommand.Parse(PageCommand.Prefix + "game|12|8\u001eSelectMenu\u001eWebUI_SelectMenu_MenuMsg\u001e{\"a\":\"b|c\"}");
+
+        Assert.Equal(new PageCommand.Game(12, "8\u001eSelectMenu\u001eWebUI_SelectMenu_MenuMsg\u001e{\"a\":\"b|c\"}"), command);
+    }
+
+    [Fact]
+    public void A_game_message_without_a_number_is_logged_by_its_verb_not_its_text()
+    {
+        var command = PageCommand.Parse(PageCommand.Prefix + "game|x|" + new string('y', 5000));
+
+        var unknown = Assert.IsType<PageCommand.Unknown>(command);
+        Assert.True(unknown.Text.Length < 100);
+        Assert.IsType<PageCommand.Unknown>(PageCommand.Parse(PageCommand.Prefix + "game|-1|z"));
+        Assert.IsType<PageCommand.Unknown>(PageCommand.Parse(PageCommand.Prefix + "game|99999999999|z"));
+    }
+
+    [Fact]
     public void Diagnostic_notes_are_kept_as_unknown_text_for_the_log()
     {
         var message = PageCommand.Prefix + "diag|poll: TypeError";

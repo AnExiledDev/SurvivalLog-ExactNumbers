@@ -43,6 +43,9 @@ internal sealed class WebPage
     /// <summary>Labels by preview text, as built by PagePayload.Labels.</summary>
     public void Labels(string json) => Call("setLabels(" + json + ")");
 
+    /// <summary>The answer to a passed-on game message, as built by PagePayload.Game.</summary>
+    public void Game(string json) => Call("takeGame(" + json + ")");
+
     /// <summary>Does nothing when the script is not there; the next check puts it back and it asks again.</summary>
     private void Call(string call) => Run(Handle + "&&" + Handle + "." + call);
 

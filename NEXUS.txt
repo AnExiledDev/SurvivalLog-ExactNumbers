@@ -1,23 +1,23 @@
 Name: Exact Numbers
-Summary: See the real numbers behind the + and - marks in Survival Log's action tooltips: -12 satiety instead of two minus signs, scaled by your character's own modifiers.
+Summary: See the numbers behind the + and - marks in Survival Log's action tooltips: ~-12 satiety instead of two minus signs. The game's listed estimate, scaled by your character's own modifiers.
 
 Description (BBCode):
-When you hover an action on an object, Survival Log shows what it does to satiety, mood, energy and life, but only as one to three + or - marks. Exact Numbers swaps each mark for the number. It only changes what the tooltip says; it never changes your character, the world or a save.
+When you hover an action on an object, Survival Log shows what it does to satiety, mood, energy and life, but only as one to three + or - marks. Exact Numbers swaps each mark for the number the game lists for it, marked with ~ because it is the game's estimate, not a measured amount. It only changes what the tooltip says; it never changes your character, the world or a save.
 
 [size=5]Main features[/size]
 [list]
-[*][b]Numbers instead of marks[/b]: every + or - chip in an object's action menu tooltip and in the crafting table's product tooltip shows its number, such as -12 or +4.[/*]
+[*][b]Numbers instead of marks[/b]: every + or - chip in an object's action menu tooltip and in the crafting table's product tooltip shows its listed number, such as ~-12 or ~+4.[/*]
 [*][b]Your character's modifiers[/b]: the game scales every satiety, mood, energy and life change by your character's own ratios. By default the numbers include that scaling. Where it changed a number, the chip also carries the listed one as hover text. You can turn this off in the config.[/*]
 [*][b]Safe fallback[/b]: if anything does not look the way the mod expects, the tooltip stays exactly as the game drew it.[/*]
 [/list]
 No hotkeys. Exact Numbers adds no data to your save and does not edit game files. You can remove it at any time.
 
-[size=5]Where the numbers come from[/size]
-Each action carries a short preview line in the game's data, such as Satiety:-12;Stamina:-20, and the game turns those numbers into marks. Exact Numbers shows the numbers themselves. The game does not say whether a preview is for one use or for an hour of work, and some effects only kick in while the action runs, so the real change can differ from the preview. Max chips already show their number and are left alone. With the Action Speed mod, the numbers are not scaled to the changed action time.
+[size=5]What the number is[/size]
+Each action carries a short preview line in the game's data, such as Satiety:-12;Stamina:-20, and the game turns those numbers into marks. Exact Numbers shows the numbers themselves, with ~ in front. The preview is a summary written for the tooltip, not what the game applies: the real change comes from the action's effects while it runs. Some costs tick over time, some amounts are random, some gains fill a stat up to a set amount, every stat stops at zero and at its maximum, and food types, difficulty, conditions and buffs can change the amount. Exact Numbers does not read those effects yet, so every number carries the ~ and none is shown as exact. Max chips already show their number and are left alone. With the Action Speed mod, the numbers are not scaled to the changed action time.
 
 [size=5]Known issues[/size]
 [list]
-[*]The first time a tooltip with a new action appears, its marks can show for a split second before the numbers arrive.[/*]
+[*]The first time a tooltip with a new action appears, its marks can show for a split second before the numbers arrive. A menu opened in the first couple of seconds after the game's UI loads can keep its marks.[/*]
 [*]A number that is not whole is shown to one decimal.[/*]
 [*]The mod's own text is in English.[/*]
 [/list]

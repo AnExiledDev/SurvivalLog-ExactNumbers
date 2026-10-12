@@ -1,26 +1,41 @@
 // Exact Numbers' web half. Runs in Root.html, the document every game page iframe sits in. The game's tooltips draw a
 // stat chip per change in a preview text such as "Satiety:-12;Stamina:-20", showing only one to three + or - marks.
-// This swaps each mark for the number the plugin works out for that preview. It only changes chip text, and only when
-// the chip still shows exactly what the game drew for that preview, so a page a game update reshaped stays as it was.
-// Talks to the plugin through vuplex.postMessage("slmod|exactnumbers|<verb>") and is driven by window.__slexactnumbers.
+// This swaps each mark for the number the plugin works out for that preview. Every decision about what a message
+// means and what a chip should say is the plugin's; this script only carries messages and edits the DOM. It only
+// changes chip text, and only when the chip still shows exactly what the game drew for that preview, so a page a game
+// update reshaped stays as it was. Talks to the plugin through vuplex.postMessage("slmod|exactnumbers|<verb>") and is
+// driven by window.__slexactnumbers.
 (function () {
   if (window.__slexactnumbers) return;
 
   var PREFIX = 'slmod|exactnumbers|';
   var POLL_MS = 200;
   var ASK_AGAIN_MS = 3000;
-  var MAX_RECENT = 20;
   var MARK = '__slexactnumbers';
   var VANILLA_ATTR = 'data-slexact-vanilla';
   var TITLE_ATTR = 'data-slexact-title';
+  // Only a cost filter: a game message that names no preview field ("attrDelta", "productAttrDelta") is not worth
+  // sending to the plugin. The plugin reads every message it is sent in full.
+  var PREVIEW_FIELD_HINT = 'ttrDelta';
+  // The object menu's own spacing for choosing a tooltip side (SelectMenu.html:428-429).
+  var MENU_TOOLTIP_OFFSET = 12;
+  var MENU_SCREEN_PADDING = 15;
 
-  // Preview text -> list of {k: chip class, v: what the game drew, s: number to show or null, b: base number or null},
+  var PENDING = 'pending';
+  var SAME = 'same';
+  var CHANGED = 'changed';
+
+  // Preview text -> list of {k: chip class, v: what the game drew, s: text to show or null, t: hover text or null},
   // or null for a preview whose chips stay as the game drew them.
   var labels = {};
   var askedAt = {};
   var reported = {};
-  // Crafting table tooltips the page built before their numbers arrived, put right when they do.
-  var recent = [];
+  // Object menu page id (its iframe's id) -> each button's preview, in button order, as the plugin read it.
+  var menus = {};
+  // Game messages sent to the plugin, and the highest one it answered. While one is in flight, a menu may still hold
+  // the previous open's previews, so menus wait for the answer.
+  var forwarded = 0;
+  var answered = 0;
 
   function send(message) {
     try {
@@ -36,23 +51,72 @@
     send('diag|' + kind + ': ' + error);
   }
 
-  // ===== Numbers from the plugin =====
+  function has(map, key) {
+    return Object.prototype.hasOwnProperty.call(map, key);
+  }
+
+  // ===== Messages from the game =====
+
+  // Root.html hears every message the game sends a page and hands it to the page's iframe (Root.html:269-299), so a
+  // menu's button list is caught here even when its iframe was made a moment ago and has no listener of its own yet.
+  function listenToGame() {
+    if (window.vuplex) return window.vuplex.addEventListener('message', passOn);
+
+    window.addEventListener('vuplexready', function () {
+      window.vuplex.addEventListener('message', passOn);
+    });
+  }
+
+  function passOn(event) {
+    var message = event && event.data;
+
+    if (typeof message !== 'string' || message.indexOf(PREVIEW_FIELD_HINT) < 0) return;
+
+    forwarded += 1;
+    send('game|' + forwarded + '|' + message);
+  }
+
+  // ===== Answers from the plugin =====
+
+  function takeGame(data) {
+    // A number above any sent belongs to a script from before a reload.
+    if (!data || typeof data.seq !== 'number' || data.seq > forwarded) return;
+    if (data.seq > answered) answered = data.seq;
+
+    if (data.menu) {
+      forgetClosedMenus();
+      menus[data.menu.page] = data.menu.previews;
+    }
+
+    setLabels(data.labels);
+  }
 
   function setLabels(data) {
+    var updated = {};
+
     data = data || {};
 
     for (var preview in data) {
-      if (Object.prototype.hasOwnProperty.call(data, preview)) labels[preview] = data[preview];
+      if (has(data, preview)) {
+        labels[preview] = data[preview];
+        updated[preview] = true;
+      }
     }
 
-    refreshRecent();
-    patchPages();
+    patchPages(updated);
+  }
+
+  // Each open makes a new menu iframe and removes the old one, so a menu whose iframe is gone is never drawn again.
+  function forgetClosedMenus() {
+    for (var pageId in menus) {
+      if (has(menus, pageId) && !document.getElementById(pageId)) delete menus[pageId];
+    }
   }
 
   // Undefined while the plugin has not answered yet; the first sight of a preview asks, and so does every later sight
   // once an ask has gone unanswered for a while.
   function labelsFor(preview) {
-    if (Object.prototype.hasOwnProperty.call(labels, preview)) return labels[preview];
+    if (has(labels, preview)) return labels[preview];
 
     var now = Date.now();
 
@@ -70,15 +134,20 @@
   function rewrite(wrap, preview) {
     var list = labelsFor(preview);
 
-    if (!list || !wrap || wrap.children.length !== list.length) return;
+    if (list === undefined) return PENDING;
+    if (!list || !wrap || wrap.children.length !== list.length) return SAME;
 
     for (var i = 0; i < list.length; i++) {
-      if (!matches(wrap.children[i], list[i])) return;
+      if (!matches(wrap.children[i], list[i])) return SAME;
     }
 
+    var result = SAME;
+
     for (var j = 0; j < list.length; j++) {
-      if (list[j].s != null) write(wrap.children[j], list[j]);
+      if (list[j].s != null && write(wrap.children[j], list[j])) result = CHANGED;
     }
+
+    return result;
   }
 
   function matches(chip, label) {
@@ -91,96 +160,131 @@
     return (drawn === null ? value.textContent : drawn) === label.v;
   }
 
+  // True when the chip's text changed, which can change its width.
   function write(chip, label) {
     var value = chip.lastElementChild;
+    var isChanged = value.textContent !== label.s;
 
     if (chip.getAttribute(VANILLA_ATTR) === null) chip.setAttribute(VANILLA_ATTR, label.v);
-    if (value.textContent !== label.s) value.textContent = label.s;
+    if (isChanged) value.textContent = label.s;
 
-    if (label.b) {
-      chip.title = 'Base ' + label.b;
+    if (label.t) {
+      chip.title = label.t;
       chip.setAttribute(TITLE_ATTR, '');
     } else if (chip.getAttribute(TITLE_ATTR) !== null) {
       chip.removeAttribute('title');
       chip.removeAttribute(TITLE_ATTR);
     }
+
+    return isChanged;
   }
 
   // ===== Object menus (SelectMenu.html) =====
 
-  // The menu's builder is private to the page, so the button list is read from the same message the page draws it
-  // from: each button's data-index is its place in btnList, and its tooltip chips come from btnList[i].attrDelta.
-  function patchSelectMenu(win, doc) {
-    var state = win[MARK];
-
-    if (!state) {
-      state = win[MARK] = { previews: [] };
-      win.addEventListener('message', function (event) {
-        try {
-          takeMenu(state, event.data);
-        } catch (e) {
-          diag('menu message', e);
-        }
-      });
-    }
-
+  // Each button's data-index is its place in the message's btnList (SelectMenu.html:439-443, openMenu from 675), and its
+  // tooltip chips come from btnList[i].attrDelta (line 537).
+  function patchSelectMenu(win, doc, frame) {
     var container = doc.getElementById('menu-container');
+    var pageId = frame.id;
 
     if (!container) return;
 
-    // The game rebuilds the menu on every open; the observer puts the numbers in before the first hover.
+    // The page rebuilds the menu on every open; the observer puts the numbers in before the first hover.
     if (!container[MARK]) {
       container[MARK] = true;
       new win.MutationObserver(function () {
         try {
-          applyMenu(state, container);
+          applyMenu(win, container, pageId);
         } catch (e) {
           diag('menu redraw', e);
         }
       }).observe(container, { childList: true, subtree: true });
     }
 
-    applyMenu(state, container);
+    applyMenu(win, container, pageId);
   }
 
-  function takeMenu(state, message) {
-    if (!message || message.type !== 'WebUI_SelectMenu_MenuMsg') return;
+  function applyMenu(win, container, pageId) {
+    var previews = menus[pageId];
 
-    var data = typeof message.data === 'string' ? JSON.parse(message.data) : message.data;
+    if (!previews || answered < forwarded) return;
 
-    // The page ignores a message without a button list, so the old list stays here too.
-    if (!data || !Array.isArray(data.btnList)) return;
-
-    state.previews = data.btnList.map(function (button) {
-      return button && typeof button.attrDelta === 'string' ? button.attrDelta : '';
-    });
-  }
-
-  function applyMenu(state, container) {
     var buttons = container.querySelectorAll('.menu-btn[data-index]');
+    var widened = [];
 
     for (var i = 0; i < buttons.length; i++) {
-      var preview = state.previews[parseInt(buttons[i].getAttribute('data-index'), 10)];
+      var preview = previews[parseInt(buttons[i].getAttribute('data-index'), 10)];
       var wrap = preview ? buttons[i].querySelector('.tip-attrs') : null;
+      var column = buttons[i].closest('.menu-col');
 
-      if (wrap) rewrite(wrap, preview);
+      if (wrap && rewrite(wrap, preview) === CHANGED && column && widened.indexOf(column) < 0) widened.push(column);
     }
+
+    for (var c = 0; c < widened.length; c++) placeMenuTooltips(win, widened[c]);
+  }
+
+  // The page picks each column's tooltip side once, from the widths of the tooltips it drew (applyTooltipSide,
+  // SelectMenu.html:656-673). A number is wider than its marks, so the side is picked again the same way: the main
+  // column prefers the left and the second column the right (lines 765-767), switching only when that side is short.
+  function placeMenuTooltips(win, column) {
+    var tips = column.querySelectorAll('.menu-btn-tooltip');
+    var widest = 0;
+
+    for (var i = 0; i < tips.length; i++) {
+      if (tips[i].offsetWidth > widest) widest = tips[i].offsetWidth;
+    }
+
+    if (widest === 0) return;
+
+    var bounds = column.getBoundingClientRect();
+    var need = widest + MENU_TOOLTIP_OFFSET + MENU_SCREEN_PADDING;
+    var fitsRight = win.innerWidth - bounds.right >= need;
+    var fitsLeft = bounds.left >= need;
+    var toRight = column.classList.contains('maint');
+
+    if (toRight && !fitsRight && fitsLeft) toRight = false;
+    else if (!toRight && !fitsLeft && fitsRight) toRight = true;
+
+    column.classList.remove('tip-left', 'tip-right');
+    column.classList.add(toRight ? 'tip-right' : 'tip-left');
   }
 
   // ===== Crafting table (ToolTable.html) =====
 
-  // buildAttrChips is a page-wide function there, so the page's own calls go through this wrapper.
-  function patchToolTable(win) {
-    var original = win.buildAttrChips;
+  // buildAttrChips and showRecipeTooltip are page-wide functions there (ToolTable.html:3445, 3491), so the page's own
+  // calls go through these wrappers. The page measures and places the tooltip right after building it (3614-3618), so
+  // numbers are put in while it builds, and numbers that arrive later are put in by having the page build it again.
+  function patchToolTable(win, doc, frame, updated) {
+    var state = win[MARK];
 
-    if (typeof original !== 'function' || original[MARK]) return;
+    if (!state) {
+      if (typeof win.buildAttrChips !== 'function' || typeof win.showRecipeTooltip !== 'function') return diag('crafting page', 'tooltip functions not found');
 
-    var wrapped = function (preview) {
-      var wrap = original.apply(this, arguments);
+      state = win[MARK] = { building: null, shown: null, x: 0, y: 0 };
+      wrapToolTable(win, state);
+      doc.addEventListener('mousemove', function (event) {
+        state.x = event.clientX;
+        state.y = event.clientY;
+      }, true);
+    }
+
+    if (updated) redrawTooltip(win, doc, state, updated);
+  }
+
+  function wrapToolTable(win, state) {
+    var build = win.buildAttrChips;
+    var show = win.showRecipeTooltip;
+
+    win.buildAttrChips = function (preview) {
+      var wrap = build.apply(this, arguments);
 
       try {
         if (wrap && typeof preview === 'string') {
-          remember(wrap, preview);
+          if (state.building) {
+            state.building.previews.push(preview);
+            state.building.wraps.push(wrap);
+          }
+
           rewrite(wrap, preview);
         }
       } catch (e) {
@@ -190,24 +294,47 @@
       return wrap;
     };
 
-    wrapped[MARK] = true;
-    win.buildAttrChips = wrapped;
-  }
+    win.showRecipeTooltip = function (event) {
+      var building = { rest: Array.prototype.slice.call(arguments, 1), previews: [], wraps: [] };
 
-  function remember(wrap, preview) {
-    recent.push({ wrap: wrap, preview: preview });
-
-    if (recent.length > MAX_RECENT) recent.shift();
-  }
-
-  function refreshRecent() {
-    for (var i = 0; i < recent.length; i++) {
-      try {
-        rewrite(recent[i].wrap, recent[i].preview);
-      } catch (e) {
-        diag('crafting refresh', e);
+      if (event) {
+        state.x = event.clientX;
+        state.y = event.clientY;
       }
+
+      state.building = building;
+
+      try {
+        return show.apply(this, arguments);
+      } finally {
+        state.building = null;
+        state.shown = building;
+      }
+    };
+  }
+
+  // Only the tooltip on screen is built again, and only once every number in it is known, so it is built once. The
+  // page reuses the tooltip element for other hovers (showMaterialTooltip, 3624), so it must still hold these chips.
+  function redrawTooltip(win, doc, state, updated) {
+    var shown = state.shown;
+    var tooltip = doc.getElementById('recipe-tooltip');
+
+    if (!shown || !tooltip || tooltip.style.display !== 'block') return;
+
+    if (!shown.wraps.length || !tooltip.contains(shown.wraps[0])) {
+      state.shown = null;
+
+      return;
     }
+
+    var isTouched = false;
+
+    for (var i = 0; i < shown.previews.length; i++) {
+      if (!has(labels, shown.previews[i])) return;
+      if (updated[shown.previews[i]]) isTouched = true;
+    }
+
+    if (isTouched) win.showRecipeTooltip.apply(win, [{ clientX: state.x, clientY: state.y }].concat(shown.rest));
   }
 
   // ===== Pages =====
@@ -217,19 +344,20 @@
     { pattern: /ToolTable\.html/, patch: patchToolTable }
   ];
 
-  function patchPages() {
+  // updated holds the previews whose numbers just arrived, or is null on a plain poll.
+  function patchPages(updated) {
     var frames = document.getElementsByTagName('iframe');
 
     for (var i = 0; i < frames.length; i++) {
       var src = frames[i].src || '';
 
       for (var p = 0; p < PAGES.length; p++) {
-        if (PAGES[p].pattern.test(src)) patchFrame(frames[i], PAGES[p], src);
+        if (PAGES[p].pattern.test(src)) patchFrame(frames[i], PAGES[p], src, updated);
       }
     }
   }
 
-  function patchFrame(frame, page, src) {
+  function patchFrame(frame, page, src, updated) {
     var win = null;
     var doc = null;
 
@@ -242,7 +370,7 @@
     if (doc.readyState === 'loading') return;
 
     try {
-      page.patch(win, doc);
+      page.patch(win, doc, frame, updated);
     } catch (e) {
       diag(String(page.pattern), e);
     }
@@ -250,12 +378,18 @@
 
   setInterval(function () {
     try {
-      patchPages();
+      patchPages(null);
     } catch (e) {
       diag('poll', e);
     }
   }, POLL_MS);
 
-  window.__slexactnumbers = { setLabels: setLabels };
+  try {
+    listenToGame();
+  } catch (e) {
+    diag('game messages', e);
+  }
+
+  window.__slexactnumbers = { setLabels: setLabels, takeGame: takeGame };
   send('ready');
 })();

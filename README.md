@@ -1,26 +1,35 @@
 # Exact Numbers
 
-See the real numbers behind the + and - marks in action tooltips.
+See the numbers behind the + and - marks in action tooltips.
 
-When you hover an action on an object (sleep, eat, reinforce a door), Survival Log shows what it does to satiety, mood, energy and life, but only as one to three + or - marks. Exact Numbers swaps each mark for the number, such as `-12` or `+4`. It does the same for the stat chips in the crafting table's tooltips. It only changes what the tooltip says. It never changes your character, the world or a save.
+When you hover an action on an object (sleep, eat, reinforce a door), Survival Log shows what it does to satiety, mood, energy and life, but only as one to three + or - marks. Exact Numbers swaps each mark for the number the game lists for it, such as `~-12` or `~+4`. It does the same for the stat chips in the crafting table's tooltips. It only changes what the tooltip says. It never changes your character, the world or a save.
+
+The `~` matters: every number is the game's own listed estimate for the action, not a measured amount. See [What the number is](#what-the-number-is).
 
 ## Features
 
-- **Numbers instead of marks**: every + or - chip in an object's action menu tooltip and in the crafting table's product tooltip shows its number.
-- **Your character's modifiers**: the game scales every satiety, mood, energy and life change by your character's own ratios (from traits, conditions and the like). By default the numbers include that scaling, so they match what your character gets. Where the scaling changed a number, the chip also carries the listed one as hover text (`Base -12`), for the tooltips that stay open while you point at them. Turn `ApplyModifiers` off to see the listed numbers instead.
+- **Numbers instead of marks**: every + or - chip in an object's action menu tooltip and in the crafting table's product tooltip shows its listed number, marked `~`.
+- **Your character's modifiers**: the game scales every satiety, mood, energy and life change by your character's own ratios (from traits, conditions and the like). By default the numbers include that scaling, so they match what your character gets. Where the scaling changed a number, the chip also carries the listed one as hover text (`listed -12 before your modifiers`), for the tooltips that stay open while you point at them. Turn `ApplyModifiers` off to see the listed numbers instead.
 - **Safe fallback**: if anything does not look the way the mod expects, the tooltip stays exactly as the game drew it.
 - **A log file**: what the mod set up, and your character's ratios whenever they change, are written to `BepInEx\exact-numbers.log`.
 
 There are no hotkeys. Exact Numbers adds no data to your save and does not edit game files. You can remove it at any time.
 
-## Where the numbers come from
+## What the number is
 
-Each action carries a short preview line in the game's data, such as `Satiety:-12;Stamina:-20`. The game turns those numbers into marks: one mark up to 10, two up to 30, three above that. Exact Numbers shows the number itself.
+Each action carries a short preview line in the game's data, such as `Satiety:-12;Stamina:-20`. The game turns those numbers into marks: one mark up to 10, two up to 30, three above that. Exact Numbers shows the number itself, with `~` in front.
 
-Please keep in mind:
+The `~` is there because the preview is not what the game applies. It is a summary written for the tooltip. What your character actually gets comes from the action's effects while it runs, and those can differ from the preview:
 
-- The preview is the game's own summary of the action. The game does not say whether it is for one use or for an hour of work, so take it as the game's estimate for the action, now with a number on it.
-- The real change happens while the action runs, and some effects only kick in then (a condition you have, a random event). Those can make the real change differ from the preview.
+- Some costs tick over time for as long as you keep doing the action, so the preview does not say whether it is per use or per hour.
+- Some amounts are random within a range.
+- Some gains fill a stat up to a set amount, and every stat stops at zero and at its maximum.
+- Food types, difficulty, conditions and buffs can change the amount.
+
+Exact Numbers does not read the action's real effects yet, so take every `~` number as the game's estimate, now with a number on it. A tooltip never shows a number without the `~`.
+
+Please also keep in mind:
+
 - The modifier scaling is the one the game applies to every stat change of your character. It is read from your character while you play. On the main menu, or if it cannot be read, the listed numbers are shown.
 - Max chips (a change to a stat's maximum) already show their number in the game and are left alone.
 - With the Action Speed mod, actions take a different time. The numbers here are the game's preview and are not scaled by Action Speed.
@@ -29,7 +38,7 @@ Please keep in mind:
 
 This is a new mod. If a number looks wrong, a tooltip shows marks where you expected a number, or something else looks off, please tell me (see [Feedback](#feedback-and-bug-reports)).
 
-- The first time a tooltip with a new action appears, its marks can show for a split second before the numbers arrive.
+- The first time a tooltip with a new action appears, its marks can show for a split second before the numbers arrive. A menu opened in the first couple of seconds after the game's UI loads can keep its marks.
 - A number that is not whole is shown to one decimal.
 - The mod's own text, in the log and in the hover text, is in English.
 
@@ -75,7 +84,7 @@ dotnet build src/ExactNumbers -c Release -p:GameDir="C:\path\to\Survival Log"
 
 `GameDir` is the game folder. The default in the project file is a local path you will almost certainly need to override. The output DLL is at `src\ExactNumbers\bin\Release\ExactNumbers.dll`.
 
-The unit tests cover the pure rules (reading the preview line the way the game's pages do, the game's modifier formula, how numbers are written and when they are sent again) and need nothing from the game:
+The unit tests cover the pure rules (reading the game's messages to its pages and the preview line the way those pages do, the game's modifier formula, how numbers are written and marked, and when they are sent again) and need nothing from the game:
 
 ```
 dotnet test tests/ExactNumbers.Tests
