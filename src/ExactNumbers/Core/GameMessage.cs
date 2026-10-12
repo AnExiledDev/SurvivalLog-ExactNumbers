@@ -42,23 +42,33 @@ public static class GameMessage
 
         if (parts.Length < 4 || parts[0] != PageMessageType) return GameFacts.Nothing;
 
+        var isMenu = parts[2] == MenuMessage;
+
+        // Besides bad JSON: Parse throws ArgumentException on a lone surrogate in the text, and GetString throws
+        // InvalidOperationException on one written as an escape.
         try
         {
             using var document = JsonDocument.Parse(parts[3]);
 
             var data = document.RootElement;
-            var menu = parts[2] == MenuMessage ? MenuOf(parts[1], data) : null;
+            var menu = isMenu ? MenuOf(parts[1], data) : null;
             var previews = new List<string>();
 
             CollectPreviews(data, previews);
 
             return new GameFacts(menu, previews);
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or ArgumentException)
         {
-            return GameFacts.Nothing;
+            return isMenu ? UnreadableMenu(parts[1]) : GameFacts.Nothing;
         }
     }
+
+    /// <summary>
+    /// A menu whose buttons cannot be read has no previews, so the page drops the ones it holds for that page instead of
+    /// putting the previous open's numbers on the new menu's chips.
+    /// </summary>
+    private static GameFacts UnreadableMenu(string pageId) => new(new PageMenu(pageId, Array.Empty<string>()), Array.Empty<string>());
 
     /// <summary>Null when the message has no button list: the page keeps its old list then (SelectMenu.html:439-443), and so does the mod.</summary>
     private static PageMenu? MenuOf(string pageId, JsonElement data)

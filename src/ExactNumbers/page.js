@@ -14,9 +14,13 @@
   var MARK = '__slexactnumbers';
   var VANILLA_ATTR = 'data-slexact-vanilla';
   var TITLE_ATTR = 'data-slexact-title';
-  // Only a cost filter: a game message that names no preview field ("attrDelta", "productAttrDelta") is not worth
-  // sending to the plugin. The plugin reads every message it is sent in full.
-  var PREVIEW_FIELD_HINT = 'ttrDelta';
+  // The only game messages sent on to the plugin, which reads each in full. An object menu's button list says which
+  // preview each button's chips are drawn from, so menus cannot be numbered without it. The crafting table's recipe list
+  // (ToolTable.html:2922) holds every product preview, so their numbers are on the page before the first hover instead
+  // of the tooltip being built again when they arrive.
+  var PASSED_ON = { WebUI_SelectMenu_MenuMsg: true, WebUI_ToolTable_RecipeMsg: true };
+  // Root.html's field separator: "type<sep>page id<sep>message name<sep>json" (Root.html:252-262).
+  var FIELD_SEPARATOR = '\u001e';
   // The object menu's own spacing for choosing a tooltip side (SelectMenu.html:428-429).
   var MENU_TOOLTIP_OFFSET = 12;
   var MENU_SCREEN_PADDING = 15;
@@ -70,10 +74,19 @@
   function passOn(event) {
     var message = event && event.data;
 
-    if (typeof message !== 'string' || message.indexOf(PREVIEW_FIELD_HINT) < 0) return;
+    if (typeof message !== 'string' || !has(PASSED_ON, messageName(message))) return;
 
     forwarded += 1;
     send('game|' + forwarded + '|' + message);
+  }
+
+  // The third field, found without splitting a message that can be very long.
+  function messageName(message) {
+    var first = message.indexOf(FIELD_SEPARATOR);
+    var second = first < 0 ? -1 : message.indexOf(FIELD_SEPARATOR, first + 1);
+    var third = second < 0 ? -1 : message.indexOf(FIELD_SEPARATOR, second + 1);
+
+    return third < 0 ? '' : message.substring(second + 1, third);
   }
 
   // ===== Answers from the plugin =====
