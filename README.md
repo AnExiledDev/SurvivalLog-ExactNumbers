@@ -81,7 +81,7 @@ Settings live in `BepInEx\config\com.dev.survivallog.exactnumbers.cfg`, created 
 
 Built against BepInEx `6.0.0-be.788`.
 
-Check `BepInEx\LogOutput.log` for a line starting `===== Exact Numbers 0.2.0 started`. It says whether the mod is on, whether modifiers are applied, and whether measuring and the trace log are on. After it you should see `measurements loaded for game version` (or `no measurements file yet` on the first start) and `measuring furniture functions`, then `listening for page script messages`, then `page script ready` once the game's UI is up, and `modifiers now:` with your character's ratios once a world loads.
+Check `BepInEx\LogOutput.log` for a line starting `===== Exact Numbers`, followed by the mod's version and `started`. It says whether the mod is on, whether modifiers are applied, and whether measuring and the trace log are on. After it you should see `measurements loaded for game version` (or `no measurements file yet` on the first start) and `measuring furniture functions`, then `listening for page script messages`, then `page script ready` once the game's UI is up, and `modifiers now:` with your character's ratios once a world loads.
 
 The same lines are in `BepInEx\exact-numbers.log`, which survives restarts. With `TraceLog` on (the default), that file also gets a line for every stat change of your character, every use the mod measured, and what it read for each menu button; those lines are written in a batch every few seconds. It is kept under about 10 MB: past that, it is moved to `exact-numbers.log.1` and started again.
 
