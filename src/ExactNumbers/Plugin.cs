@@ -12,7 +12,7 @@ namespace ExactNumbers;
 public sealed class Plugin : BasePlugin
 {
     private const string Guid = "com.dev.survivallog.exactnumbers";
-    private const string Version = "0.2.1";
+    private const string Version = "0.2.2";
 
     public override void Load()
     {
@@ -41,7 +41,7 @@ public sealed class Plugin : BasePlugin
 
         var measuring = measure ? StartMeasuring(harmony, log, traceLog) : null;
 
-        ExactTicker.Session = new ExactSession(new WebPage(log.Write), applyModifiers ? new GameModifiers(log.Write) : null, measuring, log.Write);
+        ExactTicker.Session = new ExactSession(new WebPage(log.Write), applyModifiers ? new GameModifiers(log.Write) : null, measuring, GameLanguage.IsChinese, log.Write);
         ExactTicker.Log = log.Write;
         AddComponent<ExactTicker>();
     }

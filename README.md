@@ -10,6 +10,7 @@ When you hover an action on an object (sleep, eat, reinforce a door), Survival L
 - **Measured numbers**: when you finish using an object, the mod notes what the action really did to your character and shows that from then on, without the `~`. See [Measured and estimated](#measured-and-estimated).
 - **Your character's modifiers**: the game scales every satiety, mood, energy and life change by your character's own ratios (from traits, conditions and the like). By default the numbers include that scaling. Where the scaling changed a number, the chip's hover text also gives the number before it, for the tooltips that stay open while you point at them. Turn `ApplyModifiers` off to see the numbers unscaled.
 - **Safe fallback**: if anything does not look the way the mod expects, the tooltip stays exactly as the game drew it, or keeps the game's estimate.
+- **English and Simplified Chinese**: the words the mod adds (such as `to` in a range, `/h`, and the hover text) follow the game's language setting. Switch the language in game and the tooltips follow within about a second.
 - **A log file**: what the mod set up, your character's ratios whenever they change, and (by default) every stat change of your character are written to `BepInEx\exact-numbers.log`.
 
 There are no hotkeys. Exact Numbers adds no data to your save and does not edit game files. You can remove it at any time.
@@ -57,11 +58,11 @@ This is a new mod. If a number looks wrong, a tooltip shows marks where you expe
 - The first time a tooltip with a new action appears, its marks can show for a split second before the numbers arrive. A menu opened in the first couple of seconds after the game's UI loads can keep its marks.
 - The first time the crafting table opens in a session, its products can show the `~` estimates even where a measurement exists.
 - A number that is not whole is shown to one decimal.
-- The mod's own text, in the log and in the hover text, is in English.
+- The log is in English in every game language, so bug reports read the same.
 
 ## Requirements
 
-- Survival Log 1.1.18317. Built for this version; a game update can break it until the mod is updated.
+- Survival Log 1.1.18902. Built for this version; a game update can break it until the mod is updated.
 - The [BepInEx Pack for Survival Log](https://www.nexusmods.com/survivallog/mods/12), the BepInEx 6 (IL2CPP) build for the game, version `6.0.0-be.788`.
 
 ## Install
@@ -101,7 +102,7 @@ dotnet build src/ExactNumbers -c Release -p:GameDir="C:\path\to\Survival Log"
 
 `GameDir` is the game folder. The default in the project file is a local path you will almost certainly need to override. The output DLL is at `src\ExactNumbers\bin\Release\ExactNumbers.dll`.
 
-The unit tests cover the pure rules (reading the game's messages to its pages and the preview line the way those pages do, the game's modifier formula, how numbers are written and marked, and when they are sent again, which stat changes count as a measurement, how measurements are combined, saved and read back, and the trace log's lines and size cap), plus the page script, run in a JavaScript engine against a stand-in for the game's UI. They need nothing from the game:
+The unit tests cover the pure rules (reading the game's messages to its pages and the preview line the way those pages do, the game's modifier formula, how numbers are written and marked in English and Chinese, and when they are sent again, which stat changes count as a measurement, how measurements are combined, saved and read back, and the trace log's lines and size cap), plus the page script, run in a JavaScript engine against a stand-in for the game's UI. They need nothing from the game:
 
 ```
 dotnet test tests/ExactNumbers.Tests

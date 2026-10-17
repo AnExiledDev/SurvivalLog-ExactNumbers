@@ -6,7 +6,8 @@ namespace ExactNumbers.Core;
 
 /// <summary>
 /// Answers the page's requests for numbers and remembers which label keys it was sent, so that when the character's
-/// modifiers change, or a furniture function gets a new measurement, every number already on the page can be sent again.
+/// modifiers or the game's language change, or a furniture function gets a new measurement, every number already on the
+/// page can be sent again.
 /// </summary>
 public sealed class LabelBook
 {
@@ -16,6 +17,7 @@ public sealed class LabelBook
     private readonly HashSet<string> _sent = new(StringComparer.Ordinal);
     private readonly MeasureStore? _measured;
     private Modifiers _modifiers = Modifiers.None;
+    private bool _isChinese;
 
     /// <param name="measured">What was measured, or null to show the game's estimates only, as 0.1.0 did.</param>
     public LabelBook(MeasureStore? measured = null)
@@ -31,7 +33,7 @@ public sealed class LabelBook
     {
         Remember(key);
 
-        return PagePayload.Labels(new[] { key }, _modifiers, _measured);
+        return PagePayload.Labels(new[] { key }, _modifiers, _measured, _isChinese);
     }
 
     /// <summary>
@@ -45,7 +47,7 @@ public sealed class LabelBook
 
         foreach (var key in unsent) Remember(key);
 
-        return PagePayload.Game(seq, answer, unsent, _modifiers, _measured);
+        return PagePayload.Game(seq, answer, unsent, _modifiers, _measured, _isChinese);
     }
 
     /// <summary>The same with no furniture functions known, as when measuring is off.</summary>
@@ -58,9 +60,17 @@ public sealed class LabelBook
 
         _modifiers = modifiers;
 
-        if (_sent.Count == 0) return null;
+        return ResendAll();
+    }
 
-        return PagePayload.Labels(_sent.OrderBy(key => key, StringComparer.Ordinal), _modifiers, _measured);
+    /// <returns>The payload to resend when the game's language changed and the page holds words in the old one; otherwise null.</returns>
+    public string? UpdateLanguage(bool isChinese)
+    {
+        if (isChinese == _isChinese) return null;
+
+        _isChinese = isChinese;
+
+        return ResendAll();
     }
 
     /// <returns>The payload to resend for the keys of these furniture functions the page holds; null when it holds none.</returns>
@@ -72,11 +82,14 @@ public sealed class LabelBook
             .OrderBy(key => key, StringComparer.Ordinal)
             .ToList();
 
-        return keys.Count == 0 ? null : PagePayload.Labels(keys, _modifiers, _measured);
+        return keys.Count == 0 ? null : PagePayload.Labels(keys, _modifiers, _measured, _isChinese);
     }
 
     /// <summary>A fresh page script holds no numbers, so nothing it was sent before needs resending.</summary>
     public void PageReloaded() => _sent.Clear();
+
+    private string? ResendAll() =>
+        _sent.Count == 0 ? null : PagePayload.Labels(_sent.OrderBy(key => key, StringComparer.Ordinal), _modifiers, _measured, _isChinese);
 
     private void Remember(string key)
     {

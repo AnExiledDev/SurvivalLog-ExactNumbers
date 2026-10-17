@@ -20,7 +20,7 @@ public class LabelBookTests
         var book = new LabelBook();
 
         Assert.Equal(
-            "{\"Satiety:-12\":[{\"k\":\"cost\",\"v\":\"" + Minus + Minus + "\",\"s\":\"~" + Minus + "12\",\"t\":" + JsText.Literal(ChipLabels.EstimateTitle) + "}]}",
+            "{\"Satiety:-12\":[{\"k\":\"cost\",\"v\":\"" + Minus + Minus + "\",\"s\":\"~" + Minus + "12\",\"t\":" + JsText.Literal(Texts.EstimateTitle.En) + "}]}",
             book.Answer("Satiety:-12"));
     }
 
@@ -58,6 +58,53 @@ public class LabelBookTests
         Assert.NotNull(resend);
         Assert.Contains("\"Satiety:-12\":[{\"k\":\"cost\",\"v\":\"" + Minus + Minus + "\",\"s\":\"~" + Minus + "18\"", resend);
         Assert.Contains("\"Stamina:-20\":", resend);
+    }
+
+    /// <summary>The page keeps the words it was sent, so a language switch in game must send them again.</summary>
+    [Fact]
+    public void Switching_the_game_to_chinese_resends_every_label_in_chinese()
+    {
+        var book = new LabelBook();
+
+        book.Answer("Satiety:-12");
+
+        var resend = book.UpdateLanguage(true);
+
+        Assert.NotNull(resend);
+        Assert.Contains("\"Satiety:-12\":[{\"k\":\"cost\",\"v\":\"" + Minus + Minus + "\",\"s\":\"~" + Minus + "12\",\"t\":" + JsText.Literal(Texts.EstimateTitle.Zh), resend);
+    }
+
+    [Fact]
+    public void Switching_back_to_english_resends_in_english()
+    {
+        var book = new LabelBook();
+
+        book.UpdateLanguage(true);
+        book.Answer("Satiety:-12");
+
+        Assert.Contains(JsText.Literal(Texts.EstimateTitle.En), book.UpdateLanguage(false));
+    }
+
+    [Fact]
+    public void An_unchanged_language_resends_nothing()
+    {
+        var book = new LabelBook();
+
+        book.UpdateLanguage(true);
+        book.Answer("Satiety:-12");
+
+        Assert.Null(book.UpdateLanguage(true));
+    }
+
+    [Fact]
+    public void Answers_after_a_switch_are_in_the_new_language()
+    {
+        var book = new LabelBook();
+
+        book.UpdateLanguage(true);
+
+        Assert.Contains(JsText.Literal(Texts.EstimateTitle.Zh), book.Answer("Satiety:-12"));
+        Assert.Contains(JsText.Literal(Texts.EstimateTitle.Zh), book.AnswerGame(1, Menu("SelectMenu", "Stamina:-20")));
     }
 
     [Fact]

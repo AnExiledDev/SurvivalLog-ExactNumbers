@@ -13,13 +13,14 @@ internal sealed record Measuring(Measurer Measurer, MeasuredFile File, RecipeSit
 
 /// <summary>
 /// The mod's game side, run once a frame. It keeps the page script installed, answers its requests for numbers and
-/// resends the numbers on the page whenever the character's modifiers change or a furniture function gets a new
-/// measurement. With measuring on it also tells the hooks who the player's character is and saves the measurements now
-/// and then. It only reads; nothing here changes the game.
+/// resends the numbers on the page whenever the character's modifiers or the game's language change or a furniture
+/// function gets a new measurement. With measuring on it also tells the hooks who the player's character is and saves
+/// the measurements now and then. It only reads; nothing here changes the game.
 /// </summary>
 internal sealed class ExactSession
 {
     private const float ModifierCheckSeconds = 1f;
+    private const float LanguageCheckSeconds = 1f;
     private const float SaveSeconds = 10f;
 
     private readonly WebPage _page;
@@ -27,6 +28,8 @@ internal sealed class ExactSession
     private readonly Measuring? _measuring;
     private readonly LabelBook _book;
     private readonly Cadence _modifierCheck = new(ModifierCheckSeconds);
+    private readonly Cadence _languageCheck = new(LanguageCheckSeconds);
+    private readonly Func<bool> _isChinese;
     private readonly Cadence _save = new(SaveSeconds);
     private readonly Action<string> _log;
     private bool _isPageReady;
@@ -34,11 +37,13 @@ internal sealed class ExactSession
 
     /// <param name="modifiers">Null when modifiers are off: every chip shows the base number.</param>
     /// <param name="measuring">Null when measuring is off: every chip shows the game's estimate, as in 0.1.0.</param>
-    public ExactSession(WebPage page, GameModifiers? modifiers, Measuring? measuring, Action<string> log)
+    /// <param name="isChinese">Whether the game is in Simplified Chinese right now; the chips' words follow it.</param>
+    public ExactSession(WebPage page, GameModifiers? modifiers, Measuring? measuring, Func<bool> isChinese, Action<string> log)
     {
         _page = page;
         _modifiers = modifiers;
         _measuring = measuring;
+        _isChinese = isChinese;
         _book = new LabelBook(measuring?.Measurer.Store);
         _log = log;
     }
@@ -55,6 +60,7 @@ internal sealed class ExactSession
             if (_measuring != null) TrackMeasuring(_measuring, now);
 
             CheckModifiers(now);
+            CheckLanguage(now);
             TakePageCommands();
         }
     }
@@ -106,6 +112,18 @@ internal sealed class ExactSession
         _log("modifiers now: " + modifiers.Describe());
 
         var resend = _book.Update(modifiers);
+
+        if (resend != null && _isPageReady) _page.Labels(resend);
+    }
+
+    /// <summary>Looked at before the page's requests too, so a language switch rewrites the words already on the page.</summary>
+    private void CheckLanguage(float now)
+    {
+        if (!_languageCheck.IsDue(now)) return;
+
+        _languageCheck.Ran(now);
+
+        var resend = _book.UpdateLanguage(_isChinese());
 
         if (resend != null && _isPageReady) _page.Labels(resend);
     }

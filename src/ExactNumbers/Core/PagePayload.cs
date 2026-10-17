@@ -14,21 +14,22 @@ namespace ExactNumbers.Core;
 /// </summary>
 public static class PagePayload
 {
-    public static string Labels(IEnumerable<string> keys, Modifiers modifiers, MeasureStore? measured = null) =>
-        "{" + string.Join(",", keys.Select(key => JsText.Literal(key) + ":" + Chips(LabelsFor(key, modifiers, measured)))) + "}";
+    /// <param name="isChinese">Whether the chips' words and hover text are written in Simplified Chinese.</param>
+    public static string Labels(IEnumerable<string> keys, Modifiers modifiers, MeasureStore? measured, bool isChinese) =>
+        "{" + string.Join(",", keys.Select(key => JsText.Literal(key) + ":" + Chips(LabelsFor(key, modifiers, measured, isChinese)))) + "}";
 
     /// <param name="labelKeys">The keys whose labels go with the answer; the page already holds the others.</param>
-    public static string Game(int seq, GameAnswer answer, IEnumerable<string> labelKeys, Modifiers modifiers, MeasureStore? measured = null) =>
+    public static string Game(int seq, GameAnswer answer, IEnumerable<string> labelKeys, Modifiers modifiers, MeasureStore? measured, bool isChinese) =>
         "{\"seq\":" + seq.ToString(CultureInfo.InvariantCulture) +
         ",\"menu\":" + Menu(answer.Menu) +
         ",\"recipes\":" + Recipes(answer.Recipes) +
-        ",\"labels\":" + Labels(labelKeys, modifiers, measured) + "}";
+        ",\"labels\":" + Labels(labelKeys, modifiers, measured, isChinese) + "}";
 
-    private static IReadOnlyList<ChipLabel>? LabelsFor(string key, Modifiers modifiers, MeasureStore? measured)
+    private static IReadOnlyList<ChipLabel>? LabelsFor(string key, Modifiers modifiers, MeasureStore? measured, bool isChinese)
     {
         var (site, preview) = LabelKey.Parse(key);
 
-        return ChipLabels.For(preview, modifiers, site, measured);
+        return ChipLabels.For(preview, modifiers, site, measured, isChinese);
     }
 
     private static string Menu(KeyedMenu? menu) =>

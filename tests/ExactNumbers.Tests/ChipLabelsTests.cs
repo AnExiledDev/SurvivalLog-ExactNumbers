@@ -17,8 +17,8 @@ public class ChipLabelsTests
 
         Assert.Equal(new[]
         {
-            new ChipLabel(ChipKind.Cost, Minus + Minus, "~" + Minus + "12", ChipLabels.EstimateTitle),
-            new ChipLabel(ChipKind.Gain, "+", "~+4", ChipLabels.EstimateTitle),
+            new ChipLabel(ChipKind.Cost, Minus + Minus, "~" + Minus + "12", Texts.EstimateTitle.En),
+            new ChipLabel(ChipKind.Gain, "+", "~+4", Texts.EstimateTitle.En),
         }, labels);
     }
 
@@ -31,7 +31,7 @@ public class ChipLabelsTests
 
         Assert.Equal(3, shown.Count);
         Assert.All(shown, label => Assert.StartsWith(ChipLabels.EstimateMark, label.Shown));
-        Assert.All(shown, label => Assert.StartsWith(ChipLabels.EstimateTitle, label.Title));
+        Assert.All(shown, label => Assert.StartsWith(Texts.EstimateTitle.En, label.Title));
     }
 
     [Fact]
@@ -41,7 +41,7 @@ public class ChipLabelsTests
 
         var label = Assert.Single(ChipLabels.For("Satiety:-12", modifiers)!);
 
-        Assert.Equal(new ChipLabel(ChipKind.Cost, Minus + Minus, "~" + Minus + "15", ChipLabels.EstimateTitle + "; listed " + Minus + "12 before your modifiers"), label);
+        Assert.Equal(new ChipLabel(ChipKind.Cost, Minus + Minus, "~" + Minus + "15", Texts.EstimateTitle.En + "; listed " + Minus + "12 before your modifiers"), label);
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class ChipLabelsTests
         var label = Assert.Single(ChipLabels.For("Satiety:-12", modifiers)!);
 
         Assert.Equal("~" + Minus + "12", label.Shown);
-        Assert.Equal(ChipLabels.EstimateTitle, label.Title);
+        Assert.Equal(Texts.EstimateTitle.En, label.Title);
     }
 
     [Fact]

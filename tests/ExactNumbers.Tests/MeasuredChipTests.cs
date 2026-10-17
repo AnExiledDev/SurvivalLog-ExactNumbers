@@ -12,7 +12,7 @@ public class MeasuredChipTests
     private static ChipLabel Label(string preview, MeasureStore store, Modifiers? modifiers = null, MeasureSite? site = null) =>
         ChipLabels.For(preview, modifiers ?? Modifiers.None, site ?? Bed, store)!.Last();
 
-    private static ChipLabel Estimate(string vanilla, string listed) => new(ChipKind.Gain, vanilla, ChipLabels.EstimateMark + listed, ChipLabels.EstimateTitle);
+    private static ChipLabel Estimate(string vanilla, string listed) => new(ChipKind.Gain, vanilla, ChipLabels.EstimateMark + listed, Texts.EstimateTitle.En);
 
     [Fact]
     public void A_measured_fixed_amount_is_shown_as_one_number_without_the_estimate_mark()
@@ -57,7 +57,7 @@ public class MeasuredChipTests
     {
         var label = Label("Stamina:+20", Store(Sample(4, isRate: true)));
 
-        Assert.Equal("+4" + ChipLabels.PerHourSuffix, label.Shown);
+        Assert.Equal("+4" + Texts.PerHourSuffix.En, label.Shown);
         Assert.Equal("measured over 1 use, per in-game hour", label.Title);
     }
 
@@ -82,7 +82,7 @@ public class MeasuredChipTests
         var label = Label("Stamina:+20", store);
 
         Assert.Equal(ChipLabels.EstimateMark + "+20", label.Shown);
-        Assert.Equal(ChipLabels.EstimateTitle + ChipLabels.FillToNote, label.Title);
+        Assert.Equal(Texts.EstimateTitle.En + Texts.FillToNote.En, label.Title);
     }
 
     /// <summary>
@@ -110,5 +110,36 @@ public class MeasuredChipTests
 
         Assert.Equal(new ChipLabel(ChipKind.Cap, "+10", null, null), labels[0]);
         Assert.Equal("+18", labels[1].Shown);
+    }
+
+    // ===== The game's language =====
+
+    [Fact]
+    public void In_a_chinese_game_a_range_and_its_hover_text_are_in_chinese()
+    {
+        var modifiers = new Modifiers(new Dictionary<RatioKey, float> { [new RatioKey(Stat.Stamina, true)] = 0.5f });
+
+        var label = ChipLabels.For("Stamina:+20", modifiers, Bed, Store(Sample(16, reach: 70), Sample(12, reach: 40)), isChinese: true)!.Last();
+
+        Assert.Equal("+18 至 +24", label.Shown);
+        Assert.Equal("根据 2 次使用实测，为每次使用的总量；计入角色倍率前为 +12 至 +16", label.Title);
+    }
+
+    [Fact]
+    public void In_a_chinese_game_a_rate_is_marked_per_hour_in_chinese()
+    {
+        var label = ChipLabels.For("Stamina:+20", Modifiers.None, Bed, Store(Sample(4, isRate: true)), isChinese: true)!.Last();
+
+        Assert.Equal("+4/小时", label.Shown);
+        Assert.Equal("根据 1 次使用实测，按游戏内每小时计算", label.Title);
+    }
+
+    [Fact]
+    public void In_a_chinese_game_an_estimate_explains_itself_in_chinese()
+    {
+        var label = ChipLabels.For("Stamina:+20", Modifiers.None, Bed, Store(Sample(20, reach: 80, isFillTo: true)), isChinese: true)!.Last();
+
+        Assert.Equal("~+20", label.Shown);
+        Assert.Equal(Texts.EstimateTitle.Zh + Texts.FillToNote.Zh, label.Title);
     }
 }
