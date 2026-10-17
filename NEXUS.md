@@ -29,7 +29,7 @@ The measurement is what the action really did to your character, noted each time
 [/list]
 The chip's hover text says which it is: "measured over 3 uses" or the game's estimate. Natural changes, uses you break off, and uses where the stat hit zero or its maximum are not counted. Actions that top a stat up to a level keep the ~ estimate, since no single number would be right. Each action is measured on its own object, and measurements are scaled by the modifiers your character has now.
 
-[b]It is a bit finicky.[/b] The numbers learn as you play: an action shows the estimate until you have finished it once. Long actions that end on their own show a total per use, not per hour. Measurements are saved in BepInEx&#92;exact-numbers-measured.json, per game version. Delete it to start over, or turn Measure off in the config for estimates only.
+[b]It is a bit finicky.[/b] The numbers learn as you play: an action shows the estimate until you have finished it once. Long actions that end on their own show a total per use, not per hour. Measurements are saved in BepInEx\exact-numbers-measured.json, per game version. Delete it to start over, or turn Measure off in the config for estimates only.
 
 Max chips already show their number and are left alone. With the Action Speed mod, the ~ estimates are not scaled to the changed action time; measured numbers are what your character really got.
 
@@ -51,18 +51,18 @@ If a number looks wrong, please tell me which object and action showed it (see F
 [size=5]Installation[/size]
 [list=1]
 [*]Install [url=https://www.nexusmods.com/survivallog/mods/12]BepInEx[/url] [i](if no other mods were installed before, start the game once so BepInEx finishes setup, then quit)[/i].[/*]
-[*]Put [font=Courier New]ExactNumbers.dll[/font] in the BepInEx&#92;plugins folder inside the game folder. Full path example:
-[code]C:&#92;Program Files (x86)&#92;Steam&#92;steamapps&#92;common&#92;Survival Log&#92;BepInEx&#92;plugins&#92;ExactNumbers.dll[/code][/*]
+[*]Put [font=Courier New]ExactNumbers.dll[/font] in the BepInEx\plugins folder inside the game folder. Full path example:
+[code]C:\Program Files (x86)\Steam\steamapps\common\Survival Log\BepInEx\plugins\ExactNumbers.dll[/code][/*]
 [/list]
 
 [size=5]Uninstall[/size]
-Delete [font=Courier New]ExactNumbers.dll[/font] from the [font=Courier New]BepInEx&#92;plugins[/font] folder. The measurements are in [font=Courier New]BepInEx&#92;exact-numbers-measured.json[/font] if you want them gone too.
+Delete [font=Courier New]ExactNumbers.dll[/font] from the [font=Courier New]BepInEx\plugins[/font] folder. The measurements are in [font=Courier New]BepInEx\exact-numbers-measured.json[/font] if you want them gone too.
 
 [size=5]Configuration[/size]
-To turn the mod, the modifier scaling, measuring or the detailed log off, edit [font=Courier New]BepInEx&#92;config&#92;com.dev.survivallog.exactnumbers.cfg[/font] while the game is closed (see [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers/blob/main/CONFIG.md]CONFIG.md[/url] for every setting). Changes apply at the next game start.
+To turn the mod, the modifier scaling, measuring or the detailed log off, edit [font=Courier New]BepInEx\config\com.dev.survivallog.exactnumbers.cfg[/font] while the game is closed (see [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers/blob/main/CONFIG.md]CONFIG.md[/url] for every setting). Changes apply at the next game start.
 
 [size=5]Feedback[/size]
-Found a bug or have an idea? Come say hi on the [url=https://discord.gg/trTsyxUFqg]Core Directive Discord[/url], or leave a comment here. For bugs, please include [font=Courier New]BepInEx&#92;LogOutput.log[/font] and [font=Courier New]BepInEx&#92;exact-numbers.log[/font]. The second one records every stat change of your character (kept under about 10 MB), which is what lets a wrong number be traced back.
+Found a bug or have an idea? Come say hi on the [url=https://discord.gg/trTsyxUFqg]Core Directive Discord[/url], or leave a comment here. For bugs, please include [font=Courier New]BepInEx\LogOutput.log[/font] and [font=Courier New]BepInEx\exact-numbers.log[/font]. The second one records every stat change of your character (kept under about 10 MB), which is what lets a wrong number be traced back.
 
 [size=5]Source and license[/size]
 Open source under MIT: [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers]github.com/AnExiledDev/SurvivalLog-ExactNumbers[/url]
@@ -97,7 +97,7 @@ Open source under MIT: [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumb
 [/list]
 标签的悬停提示会说明是哪一种：「根据 3 次使用实测」，或者是游戏的预估值。自然变化、中途打断的使用，以及属性到达零或上限的那次使用都不计入。会把属性补到一定数值的动作继续显示 ~ 预估值，因为没有哪个固定数字是对的。每个动作只在它自己的物件上实测，实测值会按角色当前的倍率换算。
 
-[b]需要一点耐心。[/b]数字会随着游戏进程逐步学到：一个动作在你完整做完一次之前都显示预估值。会自己结束的长动作显示的是每次使用的总量，而不是每小时的数值。实测记录按游戏版本保存在 BepInEx&#92;exact-numbers-measured.json 中。删除这个文件即可重新开始实测；如果只想看预估值，可以在配置中关闭 Measure。
+[b]需要一点耐心。[/b]数字会随着游戏进程逐步学到：一个动作在你完整做完一次之前都显示预估值。会自己结束的长动作显示的是每次使用的总量，而不是每小时的数值。实测记录按游戏版本保存在 BepInEx\exact-numbers-measured.json 中。删除这个文件即可重新开始实测；如果只想看预估值，可以在配置中关闭 Measure。
 
 上限标签本来就显示数字，模组不会改动它们。和 Action Speed 模组一起使用时，~ 预估值不会按改变后的动作时长换算；实测值就是角色实际得到的数值。
 
@@ -119,18 +119,18 @@ Open source under MIT: [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumb
 [size=5]安装[/size]
 [list=1]
 [*]安装 [url=https://www.nexusmods.com/survivallog/mods/12]BepInEx[/url] [i]（如果之前没有装过其他模组，先启动一次游戏，让 BepInEx 完成初始化，然后退出）[/i]。[/*]
-[*]把 [font=Courier New]ExactNumbers.dll[/font] 放进游戏目录下的 BepInEx&#92;plugins 文件夹。完整路径示例：
-[code]C:&#92;Program Files (x86)&#92;Steam&#92;steamapps&#92;common&#92;Survival Log&#92;BepInEx&#92;plugins&#92;ExactNumbers.dll[/code][/*]
+[*]把 [font=Courier New]ExactNumbers.dll[/font] 放进游戏目录下的 BepInEx\plugins 文件夹。完整路径示例：
+[code]C:\Program Files (x86)\Steam\steamapps\common\Survival Log\BepInEx\plugins\ExactNumbers.dll[/code][/*]
 [/list]
 
 [size=5]卸载[/size]
-从 [font=Courier New]BepInEx&#92;plugins[/font] 文件夹中删除 [font=Courier New]ExactNumbers.dll[/font]。如果也想清除实测记录，它们保存在 [font=Courier New]BepInEx&#92;exact-numbers-measured.json[/font]。
+从 [font=Courier New]BepInEx\plugins[/font] 文件夹中删除 [font=Courier New]ExactNumbers.dll[/font]。如果也想清除实测记录，它们保存在 [font=Courier New]BepInEx\exact-numbers-measured.json[/font]。
 
 [size=5]配置[/size]
-如需关闭模组、倍率换算、实测或详细日志，请在游戏关闭时编辑 [font=Courier New]BepInEx&#92;config&#92;com.dev.survivallog.exactnumbers.cfg[/font]。配置文件中每项设置都有中文说明，完整说明见 [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers/blob/main/CONFIG.md]CONFIG.md[/url]（英文）。修改会在下次启动游戏时生效。
+如需关闭模组、倍率换算、实测或详细日志，请在游戏关闭时编辑 [font=Courier New]BepInEx\config\com.dev.survivallog.exactnumbers.cfg[/font]。配置文件中每项设置都有中文说明，完整说明见 [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers/blob/main/CONFIG.md]CONFIG.md[/url]（英文）。修改会在下次启动游戏时生效。
 
 [size=5]反馈[/size]
-发现 bug 或有好点子？欢迎来 [url=https://discord.gg/trTsyxUFqg]Core Directive Discord[/url] 打个招呼，或在这里留言。报告 bug 时，请附上 [font=Courier New]BepInEx&#92;LogOutput.log[/font] 和 [font=Courier New]BepInEx&#92;exact-numbers.log[/font]。后者记录了角色的每次属性变化（保持在约 10 MB 以内），有了它才能追查出错误数字的来源。
+发现 bug 或有好点子？欢迎来 [url=https://discord.gg/trTsyxUFqg]Core Directive Discord[/url] 打个招呼，或在这里留言。报告 bug 时，请附上 [font=Courier New]BepInEx\LogOutput.log[/font] 和 [font=Courier New]BepInEx\exact-numbers.log[/font]。后者记录了角色的每次属性变化（保持在约 10 MB 以内），有了它才能追查出错误数字的来源。
 
 [size=5]源代码与许可[/size]
 基于 MIT 许可开源：[url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers]github.com/AnExiledDev/SurvivalLog-ExactNumbers[/url]
