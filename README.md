@@ -41,7 +41,7 @@ Some things are left out on purpose, so a number is never shown that the mod can
 
 Measurements are kept before your character's modifiers and scaled by the modifiers you have now when they are shown, so a trait or condition that changes later still shows correctly.
 
-**It is a bit finicky.** The numbers learn as you play: an action shows the estimate until you have finished it once, and a range can widen as you use it more. Long actions that end on their own show a total per use, not per hour: what the whole use did. If you want the estimates only, turn `Measure` off.
+The numbers learn as you play: an action shows the estimate until you have finished it once, and a range can widen as you use it more. Long actions that end on their own show a total per use, not per hour: what the whole use did. If you want the estimates only, turn `Measure` off.
 
 The measurements are saved in `BepInEx\exact-numbers-measured.json` and loaded the next time you start the game. They are kept per game version, because a game update can change what an action does. Delete the file to start measuring from scratch. If the file is damaged, the mod renames it to `exact-numbers-measured.json.bad`, says so in the log, and starts fresh. If it cannot rename it, nothing is saved until you restart the game, so the old file is never overwritten.
 
@@ -53,12 +53,9 @@ Please also keep in mind:
 
 ## Known issues and limits
 
-This is a new mod. If a number looks wrong, a tooltip shows marks where you expected a number, or something else looks off, please tell me (see [Feedback](#feedback-and-bug-reports)).
-
 - The first time a tooltip with a new action appears, its marks can show for a split second before the numbers arrive. A menu opened in the first couple of seconds after the game's UI loads can keep its marks.
 - The first time the crafting table opens in a session, its products can show the `~` estimates even where a measurement exists.
 - A number that is not whole is shown to one decimal.
-- The log is in English in every game language, so bug reports read the same.
 
 ## Requirements
 

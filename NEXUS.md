@@ -29,7 +29,7 @@ The measurement is what the action really did to your character, noted each time
 [/list]
 The chip's hover text says which it is: "measured over 3 uses" or the game's estimate. Natural changes, uses you break off, and uses where the stat hit zero or its maximum are not counted. Actions that top a stat up to a level keep the ~ estimate, since no single number would be right. Each action is measured on its own object, and measurements are scaled by the modifiers your character has now.
 
-[b]It is a bit finicky.[/b] The numbers learn as you play: an action shows the estimate until you have finished it once. Long actions that end on their own show a total per use, not per hour. Measurements are saved in BepInEx\exact-numbers-measured.json, per game version. Delete it to start over, or turn Measure off in the config for estimates only.
+The numbers learn as you play: an action shows the estimate until you have finished it once. Long actions that end on their own show a total per use, not per hour. Measurements are saved in BepInEx\exact-numbers-measured.json, per game version. Delete it to start over, or turn Measure off in the config for estimates only.
 
 Max chips already show their number and are left alone. With the Action Speed mod, the ~ estimates are not scaled to the changed action time; measured numbers are what your character really got.
 
@@ -38,9 +38,7 @@ Max chips already show their number and are left alone. With the Action Speed mo
 [*]The first time a tooltip with a new action appears, its marks can show for a split second before the numbers arrive. A menu opened in the first couple of seconds after the game's UI loads can keep its marks.[/*]
 [*]The first time the crafting table opens in a session, its products can show the ~ estimates even where a measurement exists.[/*]
 [*]A number that is not whole is shown to one decimal.[/*]
-[*]The log file is in English in every game language, so bug reports read the same.[/*]
 [/list]
-If a number looks wrong, please tell me which object and action showed it (see Feedback below).
 
 [size=5]Requirements[/size]
 [list]
@@ -98,7 +96,7 @@ Open source under MIT: [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumb
 [/list]
 标签的悬停提示会说明是哪一种：「根据 3 次使用实测」，或者是游戏的预估值。自然变化、中途打断的使用，以及属性到达零或上限的那次使用都不计入。会把属性补到一定数值的动作继续显示 ~ 预估值，因为没有哪个固定数字是对的。每个动作只在它自己的物件上实测，实测值会按角色当前的倍率换算。
 
-[b]需要一点耐心。[/b]数字会随着游戏进程逐步学到：一个动作在你完整做完一次之前都显示预估值。会自己结束的长动作显示的是每次使用的总量，而不是每小时的数值。实测记录按游戏版本保存在 BepInEx\exact-numbers-measured.json 中。删除这个文件即可重新开始实测；如果只想看预估值，可以在配置中关闭 Measure。
+数字会随着游戏进程逐步学到：一个动作在你完整做完一次之前都显示预估值。会自己结束的长动作显示的是每次使用的总量，而不是每小时的数值。实测记录按游戏版本保存在 BepInEx\exact-numbers-measured.json 中。删除这个文件即可重新开始实测；如果只想看预估值，可以在配置中关闭 Measure。
 
 上限标签本来就显示数字，模组不会改动它们。和 Action Speed 模组一起使用时，~ 预估值不会按改变后的动作时长换算；实测值就是角色实际得到的数值。
 
@@ -107,9 +105,7 @@ Open source under MIT: [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumb
 [*]带有新动作的提示第一次出现时，符号可能会在数字到达前闪现一瞬间。游戏界面加载后最初一两秒内打开的菜单可能会一直显示符号。[/*]
 [*]每次启动游戏后第一次打开工作台时，即使已有实测记录，产物也可能显示 ~ 预估值。[/*]
 [*]不是整数的数字会保留一位小数。[/*]
-[*]日志文件在任何游戏语言下都是英文，这样问题反馈读起来都一样。[/*]
 [/list]
-如果某个数字看起来不对，请告诉我是哪个物件的哪个动作（见下方「反馈」）。
 
 [size=5]前置要求[/size]
 [list]
