@@ -44,11 +44,13 @@ Max chips already show their number and are left alone. With the Action Speed mo
 [list]
 [*]Survival Log 1.1.18902. A game update can break it until the mod is updated.[/*]
 [*][url=https://www.nexusmods.com/survivallog/mods/12]BepInEx for Survival Log[/url] (BepInEx 6.0.0-be.788, IL2CPP). Install it first.[/*]
+[*]Exiled's Toolkit 0.4.0 or newer, which applies changed settings at once. Exact Numbers does not load without it.[/*]
 [/list]
 
 [size=5]Installation[/size]
 [list=1]
 [*]Install [url=https://www.nexusmods.com/survivallog/mods/12]BepInEx[/url] [i](if no other mods were installed before, start the game once so BepInEx finishes setup, then quit)[/i].[/*]
+[*]Install Exiled's Toolkit the same way: download its zip and extract it into the game folder.[/*]
 [*]Download the zip from the Files tab.[/*]
 [*]Extract it into the game folder (the folder with [font=Courier New]SurvivalLog.exe[/font]). The zip holds a BepInEx folder, so the DLL lands in the right place. When asked, merge the folders. The result should be:
 [code]C:\Program Files (x86)\Steam\steamapps\common\Survival Log\BepInEx\plugins\ExactNumbers.dll[/code][/*]
@@ -58,7 +60,7 @@ Max chips already show their number and are left alone. With the Action Speed mo
 Delete [font=Courier New]ExactNumbers.dll[/font] from the [font=Courier New]BepInEx\plugins[/font] folder. The measurements are in [font=Courier New]BepInEx\exact-numbers-measured.json[/font] if you want them gone too.
 
 [size=5]Configuration[/size]
-To turn the mod, the modifier scaling, measuring or the detailed log off, edit [font=Courier New]BepInEx\config\com.dev.survivallog.exactnumbers.cfg[/font] while the game is closed (see [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers/blob/main/CONFIG.md]CONFIG.md[/url] for every setting). Changes apply at the next game start.
+To turn the mod, the modifier scaling, measuring or the detailed log off, edit [font=Courier New]BepInEx\config\com.dev.survivallog.exactnumbers.cfg[/font] while the game is closed, or do it in game on the Mod Manager's Mods screen (see [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers/blob/main/CONFIG.md]CONFIG.md[/url] for every setting). ApplyModifiers changed there takes effect at once; Enabled, Measure and TraceLog take effect at the next game start.
 
 [size=5]Feedback[/size]
 Found a bug or have an idea? Come say hi on the [url=https://discord.gg/trTsyxUFqg]Core Directive Discord[/url], or leave a comment here. For bugs, please include [font=Courier New]BepInEx\LogOutput.log[/font] and [font=Courier New]BepInEx\exact-numbers.log[/font]. The second one records every stat change of your character (kept under about 10 MB), which is what lets a wrong number be traced back.
@@ -111,11 +113,13 @@ Open source under MIT: [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumb
 [list]
 [*]Survival Log 1.1.18902。游戏更新后模组可能暂时失效，直到模组更新为止。[/*]
 [*][url=https://www.nexusmods.com/survivallog/mods/12]BepInEx for Survival Log[/url]（BepInEx 6.0.0-be.788，IL2CPP），请先安装。[/*]
+[*]Exiled's Toolkit 0.4.0 或更新版本，用于让改动的设置立即生效。没有它，Exact Numbers 无法加载。[/*]
 [/list]
 
 [size=5]安装[/size]
 [list=1]
 [*]安装 [url=https://www.nexusmods.com/survivallog/mods/12]BepInEx[/url] [i]（如果之前没有装过其他模组，先启动一次游戏，让 BepInEx 完成初始化，然后退出）[/i]。[/*]
+[*]用同样的方式安装 Exiled's Toolkit：下载它的压缩包并解压到游戏目录。[/*]
 [*]在「文件」页下载压缩包。[/*]
 [*]把压缩包解压到游戏目录（[font=Courier New]SurvivalLog.exe[/font] 所在的文件夹）。压缩包里带有 BepInEx 文件夹，DLL 会自动放到正确位置。如果提示合并文件夹，选择合并。解压后应为：
 [code]C:\Program Files (x86)\Steam\steamapps\common\Survival Log\BepInEx\plugins\ExactNumbers.dll[/code][/*]
@@ -125,7 +129,7 @@ Open source under MIT: [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumb
 从 [font=Courier New]BepInEx\plugins[/font] 文件夹中删除 [font=Courier New]ExactNumbers.dll[/font]。如果也想清除实测记录，它们保存在 [font=Courier New]BepInEx\exact-numbers-measured.json[/font]。
 
 [size=5]配置[/size]
-如需关闭模组、倍率换算、实测或详细日志，请在游戏关闭时编辑 [font=Courier New]BepInEx\config\com.dev.survivallog.exactnumbers.cfg[/font]。配置文件中每项设置都有中文说明，完整说明见 [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers/blob/main/CONFIG.md]CONFIG.md[/url]（英文）。修改会在下次启动游戏时生效。
+如需关闭模组、倍率换算、实测或详细日志，可以在游戏内 Mod Manager 的「模组」界面修改，也可以在游戏关闭时编辑 [font=Courier New]BepInEx\config\com.dev.survivallog.exactnumbers.cfg[/font]。配置文件中每项设置都有中文说明，完整说明见 [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers/blob/main/CONFIG.md]CONFIG.md[/url]（英文）。在「模组」界面修改的 ApplyModifiers 立即生效；Enabled、Measure 和 TraceLog 在下次启动游戏时生效。
 
 [size=5]反馈[/size]
 发现 bug 或有好点子？欢迎来 [url=https://discord.gg/trTsyxUFqg]Core Directive Discord[/url] 打个招呼，或在这里留言。报告 bug 时，请附上 [font=Courier New]BepInEx\LogOutput.log[/font] 和 [font=Courier New]BepInEx\exact-numbers.log[/font]。后者记录了角色的每次属性变化（保持在约 10 MB 以内），有了它才能追查出错误数字的来源。

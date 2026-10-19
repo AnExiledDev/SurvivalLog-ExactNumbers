@@ -24,7 +24,7 @@ internal sealed class ExactSession
     private const float SaveSeconds = 10f;
 
     private readonly WebPage _page;
-    private readonly GameModifiers? _modifiers;
+    private readonly GameModifiers _modifiers;
     private readonly Measuring? _measuring;
     private readonly LabelBook _book;
     private readonly Cadence _modifierCheck = new(ModifierCheckSeconds);
@@ -33,12 +33,12 @@ internal sealed class ExactSession
     private readonly Cadence _save = new(SaveSeconds);
     private readonly Action<string> _log;
     private bool _isPageReady;
+    private bool _isApplyingModifiers = true;
     private bool _hasReportedMenuFailure;
 
-    /// <param name="modifiers">Null when modifiers are off: every chip shows the base number.</param>
     /// <param name="measuring">Null when measuring is off: every chip shows the game's estimate, as in 0.1.0.</param>
     /// <param name="isChinese">Whether the game is in Simplified Chinese right now; the chips' words follow it.</param>
-    public ExactSession(WebPage page, GameModifiers? modifiers, Measuring? measuring, Func<bool> isChinese, Action<string> log)
+    public ExactSession(WebPage page, GameModifiers modifiers, Measuring? measuring, Func<bool> isChinese, Action<string> log)
     {
         _page = page;
         _modifiers = modifiers;
@@ -47,6 +47,9 @@ internal sealed class ExactSession
         _book = new LabelBook(measuring?.Measurer.Store);
         _log = log;
     }
+
+    /// <summary>Called on the main thread after each change of the setting. Off, every chip goes back to the base number at the next check.</summary>
+    public void UseModifiers(bool isApplying) => _isApplyingModifiers = isApplying;
 
     public void Update()
     {
@@ -101,11 +104,11 @@ internal sealed class ExactSession
     /// <summary>Looked at before the page's requests, so a request is answered with the character's current modifiers.</summary>
     private void CheckModifiers(float now)
     {
-        if (_modifiers == null || !_modifierCheck.IsDue(now)) return;
+        if (!_modifierCheck.IsDue(now)) return;
 
         _modifierCheck.Ran(now);
 
-        var modifiers = _modifiers.Read();
+        var modifiers = _isApplyingModifiers ? _modifiers.Read() : Modifiers.None;
 
         if (modifiers.SameAs(_book.Current)) return;
 
