@@ -77,7 +77,7 @@ Delete `ExactNumbers.dll` from the `BepInEx\plugins` folder. For a clean slate, 
 
 ## Configuration
 
-Settings live in `BepInEx\config\com.dev.survivallog.exactnumbers.cfg`, created the first time the game starts with the mod. Change them in game on the Mod Manager's Mods screen, or edit the file while the game is closed. ApplyModifiers changed on the Mods screen takes effect at once; Enabled, Measure and TraceLog take effect at the next game start. See [CONFIG.md](CONFIG.md) for every setting.
+Settings live in `BepInEx\config\com.dev.survivallog.exactnumbers.cfg`, created the first time the game starts with the mod. Change them in game on the Mod Manager's Mods screen, or edit the file while the game is closed. ApplyModifiers changed on the Mods screen takes effect at once; Enabled, Measure and TraceLog take effect at the next game start. See [CONFIG.md](CONFIG.md) for every setting. Without Exiled's Toolkit installed, changes made on the Mods screen take effect at the next game start instead.
 
 ## Troubleshooting
 
@@ -91,7 +91,7 @@ If the tooltips still show marks, look in the log for a line starting `could not
 
 ## Feedback and bug reports
 
-Found a bug, have an idea, or something feels off? Come say so on the Core Directive Discord: https://discord.gg/trTsyxUFqg . You can also leave a comment on the Nexus page or [open an issue](https://github.com/AnExiledDev/SurvivalLog-ExactNumbers/issues). When reporting a bug, attach `BepInEx\LogOutput.log` and `BepInEx\exact-numbers.log`, and say which object and action showed the wrong number.
+Found a bug, have an idea, or something feels off? Come say so on the Core Directive Discord: https://discord.gg/trTsyxUFqg . You can also post in the Posts tab of the mod's Nexus Mods page. When reporting a bug, attach `BepInEx\LogOutput.log` and `BepInEx\exact-numbers.log`, and say which object and action showed the wrong number.
 
 To reach me directly, message `exiled.dev` on Discord; you can find me in the [official Survival Log Discord](https://discord.gg/MZGg4gQAUe). I'm also on X as [@AnExiledDev](https://x.com/AnExiledDev).
 
