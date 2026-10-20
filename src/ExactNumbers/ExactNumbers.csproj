@@ -44,6 +44,7 @@
     <AssemblyMetadata Include="ModManager.Category" Value="Interface" />
     <AssemblyMetadata Include="ModManager.GameVersion" Value="1.1.18902" />
     <AssemblyMetadata Include="ModManager.Settings" Value="Restart" />
+    <AssemblyMetadata Include="ModManager.NexusId" Value="63" />
     <AssemblyMetadata Include="ModManager.GitHub" Value="AnExiledDev/SurvivalLog-ExactNumbers" />
     <AssemblyMetadata Include="ModManager.Changelog" Value="https://github.com/AnExiledDev/SurvivalLog-ExactNumbers/blob/main/CHANGELOG.md" />
   </ItemGroup>
