@@ -1,5 +1,5 @@
 Name: Exact Numbers
-Summary: See the numbers behind the + and - marks in Survival Log's action tooltips: -10 satiety instead of two minus signs. Measured from what your character really got once you have used an action, the game's ~estimate until then. 把动作提示里的 + 和 - 符号换成具体数字，用过一次后显示角色实际得到的数值。
+Summary: See real numbers in action tooltips where the game shows + and - marks: -10 satiety instead of two minus signs. Once you've used an action, it shows what your character actually got, scaled by your own modifiers, with the game's estimate (marked ~) until then. Only the tooltip changes, nothing in your game or your save.
 
 Description (BBCode):
 When you hover an action on an object, Survival Log shows what it does to satiety, mood, energy and life, but only as one to three + or - marks. Exact Numbers swaps each mark for a number. At first that is the game's own estimate, marked with ~. Once you have used the action, it is the amount your character really got. It only changes what the tooltip says; it never changes your character, the world or a save.
@@ -42,7 +42,7 @@ Max chips already show their number and are left alone. With the Action Speed mo
 
 [size=5]Requirements[/size]
 [list]
-[*]Survival Log 1.1.18902. A game update can break it until the mod is updated.[/*]
+[*]Survival Log 1.1.19131. A game update can break it until the mod is updated.[/*]
 [*][url=https://www.nexusmods.com/survivallog/mods/12]BepInEx for Survival Log[/url] (BepInEx 6.0.0-be.788, IL2CPP). Install it first.[/*]
 [*]Optional: Exiled's Toolkit 0.4.0 or newer. With it, settings changed on the Mod Manager's Mods screen take effect without restarting the game. Without it, they take effect at the next game start.[/*]
 [/list]
@@ -113,7 +113,7 @@ Open source under MIT: [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumb
 
 [size=5]前置要求[/size]
 [list]
-[*]Survival Log 1.1.18902。游戏更新后模组可能暂时失效，直到模组更新为止。[/*]
+[*]Survival Log 1.1.19131。游戏更新后模组可能暂时失效，直到模组更新为止。[/*]
 [*][url=https://www.nexusmods.com/survivallog/mods/12]BepInEx for Survival Log[/url]（BepInEx 6.0.0-be.788，IL2CPP），请先安装。[/*]
 [*]可选：Exiled's Toolkit 0.4.0 或更新版本。装了它，在 Mod Manager 的「模组」界面改动的设置无需重启游戏即可生效；没装的话，改动在下次启动游戏时生效。[/*]
 [/list]
