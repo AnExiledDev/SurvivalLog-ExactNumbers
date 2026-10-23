@@ -9,6 +9,7 @@ public class PageScriptTests
     private const string Minus = "\u2212";
     private const string TwoCostMarks = Minus + Minus;
     private const string Recipes = "WebUI_ToolTable_RecipeMsg";
+    private const string StaticRecipes = "WebUI_ToolTable_RecipeStaticMsg";
 
     private static string Cost(string drawn) => "{k:'cost',v:" + JsText.Literal(drawn) + "}";
 
@@ -302,6 +303,21 @@ public class PageScriptTests
 
         Assert.Equal("+25", page.RecipeChip(0, 0));
         Assert.Empty(page.Notes);
+    }
+
+    [Fact]
+    public void A_static_recipe_list_maps_its_products_like_the_plain_list_did()
+    {
+        var page = MeasuredTable("{'Satiety:+30':[" + Gain("++") + "]}");
+
+        page.Poll();
+        page.GameSends("ToolTable", StaticRecipes, KeyedRecipeList("r1", "Satiety:+30"));
+        page.AnswerGameMessages();
+        page.DrawRecipes("[{recipeKey:'r1',productAttrDelta:'Satiety:+30'}]");
+        page.HoverProduct("r1");
+
+        Assert.Equal(new[] { Raw("ToolTable", StaticRecipes, KeyedRecipeList("r1", "Satiety:+30")) }, page.PassedOn);
+        Assert.Equal("+25", page.RecipeChip(0, 0));
     }
 
     /// <summary>The key the plugin sent is for the preview it read; a product drawn with another preview is not that function's.</summary>

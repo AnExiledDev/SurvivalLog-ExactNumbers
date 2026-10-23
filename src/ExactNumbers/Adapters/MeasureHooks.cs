@@ -47,6 +47,9 @@ internal static class MeasureHooks
     /// <summary>The stat an AE_AddCostAttr_Float.Run with a limit is about to change; null outside one.</summary>
     [ThreadStatic] private static AttrName? _fillingAttr;
 
+    /// <summary>A furniture brief filled inside GetOrBuildRecipeStatic, waiting for the recipe key it returns; null outside one.</summary>
+    [ThreadStatic] private static (Config_Item? Config, string Preview)? _pendingBrief;
+
     /// <summary>One cost call in progress: the change event it raised, once it has.</summary>
     private sealed class Frame
     {
@@ -119,6 +122,19 @@ internal static class MeasureHooks
         catch (Exception ex)
         {
             log("could not hook the crafting table's furniture previews, crafting chips keep the game's estimates: " + ex.Message);
+        }
+
+        // Builds that fill the brief on a blank row name it in GetOrBuildRecipeStatic; older builds have no such method.
+        if (AccessTools.Method(typeof(Reducer_Web_ToolTable), "GetOrBuildRecipeStatic") != null)
+        {
+            try
+            {
+                Patch(harmony, typeof(Reducer_Web_ToolTable), "GetOrBuildRecipeStatic", null, prefix: nameof(BeforeStatic), postfix: nameof(AfterStatic));
+            }
+            catch (Exception ex)
+            {
+                log("could not hook the crafting table's recipe list, furniture recipes keep the game's estimates: " + ex.Message);
+            }
         }
 
         return true;
@@ -403,30 +419,62 @@ internal static class MeasureHooks
         {
             var recipeKey = recipeData?.RecipeKey?.Value;
             var preview = recipeData?.ProductAttrDelta?.Value ?? "";
-            var furnitureId = productConfig?.TargetFurnitureID ?? 0;
 
-            // FillFurnitureBrief returns at once for an item that is not furniture (Reducer_Web_ToolTable.c:4308).
-            if (string.IsNullOrEmpty(recipeKey) || furnitureId <= 0) return;
-
-            var configs = GameSingleton.Existing<ConfigManager>();
-            var furniture = configs?.Get_Config_Furniture(furnitureId);
-            var chosen = furniture == null || configs == null ? null : BriefFunc.Choose(furniture.SlotType, FuncsOf(configs, furniture));
-            var isMapped = chosen is { } func && preview.Length > 0 && func.Preview == preview;
-
-            lock (Gate)
-            {
-                if (isMapped && chosen is { } mapped) _recipes.Note(recipeKey, new RecipeSite(new MeasureSite(furnitureId, mapped.Id), preview));
-                else _recipes.Forget(recipeKey);
-            }
-
-            var outcome = isMapped ? "mapped" : chosen == null ? "none" : "mismatch, game shows " + preview;
-
-            _trace($"recipe key={recipeKey} item={productConfig?.ID ?? 0} furniture={furnitureId} slot={furniture?.SlotType ?? 0} func={chosen?.Id ?? 0} preview={chosen?.Preview ?? ""} -> {outcome}");
+            // GetOrBuildRecipeStatic fills a blank row and only names the recipe once the brief is back, so the key is
+            // taken from what it returns.
+            if (string.IsNullOrEmpty(recipeKey)) _pendingBrief = (productConfig, preview);
+            else NoteBrief(recipeKey, productConfig, preview);
         }
         catch (Exception ex)
         {
-            if (Interlocked.Exchange(ref _isBriefDormant, 1) == 0) _log("crafting previews stopped after an error, crafting chips keep the game's estimates (reported once): " + ex);
+            StopBriefs(ex);
         }
+    }
+
+    private static void BeforeStatic() => _pendingBrief = null;
+
+    private static void AfterStatic(RecipeStaticInfo __result)
+    {
+        if (Volatile.Read(ref _isBriefDormant) != 0 || _recipes == null || _pendingBrief is not { } brief) return;
+
+        _pendingBrief = null;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(__result?.RecipeKey)) NoteBrief(__result.RecipeKey, brief.Config, brief.Preview);
+        }
+        catch (Exception ex)
+        {
+            StopBriefs(ex);
+        }
+    }
+
+    private static void StopBriefs(Exception ex)
+    {
+        if (Interlocked.Exchange(ref _isBriefDormant, 1) == 0) _log("crafting previews stopped after an error, crafting chips keep the game's estimates (reported once): " + ex);
+    }
+
+    private static void NoteBrief(string recipeKey, Config_Item? productConfig, string preview)
+    {
+        var furnitureId = productConfig?.TargetFurnitureID ?? 0;
+
+        // FillFurnitureBrief returns at once for an item that is not furniture (Reducer_Web_ToolTable.c:4308).
+        if (furnitureId <= 0 || _recipes == null) return;
+
+        var configs = GameSingleton.Existing<ConfigManager>();
+        var furniture = configs?.Get_Config_Furniture(furnitureId);
+        var chosen = furniture == null || configs == null ? null : BriefFunc.Choose(furniture.SlotType, FuncsOf(configs, furniture));
+        var isMapped = chosen is { } func && preview.Length > 0 && func.Preview == preview;
+
+        lock (Gate)
+        {
+            if (isMapped && chosen is { } mapped) _recipes.Note(recipeKey, new RecipeSite(new MeasureSite(furnitureId, mapped.Id), preview));
+            else _recipes.Forget(recipeKey);
+        }
+
+        var outcome = isMapped ? "mapped" : chosen == null ? "none" : "mismatch, game shows " + preview;
+
+        _trace($"recipe key={recipeKey} item={productConfig?.ID ?? 0} furniture={furnitureId} slot={furniture?.SlotType ?? 0} func={chosen?.Id ?? 0} preview={chosen?.Preview ?? ""} -> {outcome}");
     }
 
     /// <summary>ConfigManager.Get_Config_FurnitureFunc (ConfigManager.c:12696) for each of the furniture's functions, in order.</summary>

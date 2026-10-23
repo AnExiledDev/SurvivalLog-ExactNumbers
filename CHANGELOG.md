@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2
+
+- Crafting table: furniture products show measured numbers again on the new workbench screen.
+- Made for Survival Log 1.1.19611.
+
 ## 0.3.1
 
 - After a game update, a hook that can no longer be placed is logged as an error, so the Mod Manager can mark the mod as maybe needing an update.

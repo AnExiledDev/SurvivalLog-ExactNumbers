@@ -18,9 +18,10 @@
   var TITLE_ATTR = 'data-slexact-title';
   // The only game messages sent on to the plugin, which reads each in full. An object menu's button list says which
   // preview each button's chips are drawn from, so menus cannot be numbered without it. The crafting table's recipe list
-  // (ToolTable.html:2922) holds every product preview, so their numbers are on the page before the first hover instead
-  // of the tooltip being built again when they arrive.
-  var PASSED_ON = { WebUI_SelectMenu_MenuMsg: true, WebUI_ToolTable_RecipeMsg: true };
+  // holds every product preview, so their numbers are on the page before the first hover instead of the tooltip being
+  // built again when they arrive. The game now sends the previews in its static recipe list (ToolTable.html:3113) and
+  // the plain recipe list carries only keys; both are passed on so either build is read.
+  var PASSED_ON = { WebUI_SelectMenu_MenuMsg: true, WebUI_ToolTable_RecipeMsg: true, WebUI_ToolTable_RecipeStaticMsg: true };
   // Root.html's field separator: "type<sep>page id<sep>message name<sep>json" (Root.html:252-262).
   var FIELD_SEPARATOR = '\u001e';
   // The object menu's own spacing for choosing a tooltip side (SelectMenu.html:428-429).
