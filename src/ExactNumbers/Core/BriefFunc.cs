@@ -34,3 +34,39 @@ public static class BriefFunc
         return best;
     }
 }
+
+/// <summary>What the configs say about one furniture for the crafting table: whether it was found, its slot type, and the function Choose picked.</summary>
+public readonly record struct BriefChoice(bool IsFound, int SlotType, FurnitureFunc? Func);
+
+/// <summary>
+/// The crafting table asks for every furniture recipe's brief each time it lists them, and the answer only depends on
+/// the config tables, so it is read once per furniture. Kept per table: a table the game built again (another native
+/// object) drops everything kept. Nothing kept depends on the game's language: ids, weights, slot types and previews
+/// such as "Satiety:+30".
+/// </summary>
+public sealed class BriefChoices
+{
+    /// <summary>Far above the furniture in the game; past it a choice is still made, only not kept.</summary>
+    public const int MaxKept = 4096;
+
+    private readonly Dictionary<int, BriefChoice> _choices = new();
+    private long _table;
+
+    /// <param name="table">The identity of the config table read from, such as its native pointer.</param>
+    public bool TryGet(long table, int furnitureId, out BriefChoice choice)
+    {
+        if (table != _table)
+        {
+            _choices.Clear();
+            _table = table;
+        }
+
+        return _choices.TryGetValue(furnitureId, out choice);
+    }
+
+    /// <summary>Keeps a choice read from the table last passed to TryGet.</summary>
+    public void Put(int furnitureId, BriefChoice choice)
+    {
+        if (_choices.Count < MaxKept) _choices[furnitureId] = choice;
+    }
+}

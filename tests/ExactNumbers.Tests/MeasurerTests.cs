@@ -30,6 +30,23 @@ public class MeasurerTests
         Assert.Empty(_measurer.TakeChanged());
     }
 
+    /// <summary>
+    /// The session asks every frame. Nothing new must cost nothing (the one shared empty list, no new list per frame),
+    /// and a new measurement after that must still be reported.
+    /// </summary>
+    [Fact]
+    public void Asking_for_changes_when_there_are_none_makes_nothing_and_a_later_change_is_still_reported()
+    {
+        Assert.Same(Array.Empty<MeasureSite>(), _measurer.TakeChanged());
+
+        _measurer.Play(Use());
+        _measurer.Cost(Call(-5));
+        _measurer.End(ActionId, false, 60);
+
+        Assert.Equal(new[] { Bed }, _measurer.TakeChanged());
+        Assert.Same(Array.Empty<MeasureSite>(), _measurer.TakeChanged());
+    }
+
     /// <summary>The game removes the last action after the next one has started; that must not end the new use.</summary>
     [Fact]
     public void The_end_of_another_action_leaves_the_open_use_alone()

@@ -32,6 +32,9 @@ internal sealed class GameModifiers
     }
 
     private readonly Action<string> _log;
+
+    // Read into every second and kept, so a read that finds the same ratios allocates nothing.
+    private readonly Dictionary<RatioKey, float> _read = new();
     private bool _hasReportedFailure;
 
     public GameModifiers(Action<string> log)
@@ -39,12 +42,19 @@ internal sealed class GameModifiers
         _log = log;
     }
 
-    /// <returns>Modifiers.None when there is no character yet (main menu, loading) or the read failed.</returns>
-    public Modifiers Read()
+    /// <returns>
+    /// current itself when the ratios read are exactly its own; Modifiers.None when there is no character yet (main
+    /// menu, loading) or the read failed.
+    /// </returns>
+    public Modifiers Read(Modifiers current)
     {
         try
         {
-            return TryRead() ?? Modifiers.None;
+            _read.Clear();
+
+            if (!TryRead(_read)) return Modifiers.None;
+
+            return current.Holds(_read) ? current : new Modifiers(_read);
         }
         catch (Exception ex)
         {
@@ -56,22 +66,22 @@ internal sealed class GameModifiers
         }
     }
 
-    private static Modifiers? TryRead()
+    /// <returns>False when there is no character to read.</returns>
+    private static bool TryRead(Dictionary<RatioKey, float> ratios)
     {
         // AgentManager.GetLeadingRole (decomp GameCore.HotUpdate.Battle.Logic.AgentManager.c:4408), reached the way
         // sl-time-control does, and AgentTools.GetAgentComponent (AgentTools.c:53).
         var role = GameSingleton.Existing<BattleLogicWorld>()?._AgentManager?.GetLeadingRole();
 
-        if (role == null) return null;
+        if (role == null) return false;
 
         var attributes = AgentTools.GetAgentComponent<AttributeComponent>(role)?.AttrDict;
         var gainRatios = AttributeComponent.AddCostValueDic;
         var costRatios = AttributeComponent.DelCostValueDic;
 
-        if (attributes == null || gainRatios == null || costRatios == null) return null;
+        if (attributes == null || gainRatios == null || costRatios == null) return false;
 
         var scaling = GameKey.Attr_ScalingRatio;
-        var ratios = new Dictionary<RatioKey, float>();
 
         foreach (var (stat, name) in Stats)
         {
@@ -80,7 +90,7 @@ internal sealed class GameModifiers
             AddRatio(ratios, new RatioKey(stat, false), costRatios, attributes, name, scaling);
         }
 
-        return new Modifiers(ratios);
+        return true;
     }
 
     private static void AddRatio(

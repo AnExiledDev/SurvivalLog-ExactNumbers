@@ -13,12 +13,15 @@ namespace ExactNumbers.Adapters;
 /// </summary>
 internal static class MenuReader
 {
+    // The runtime keeps one type object per class for good, so it is looked up once, not on every menu message.
+    private static Il2CppSystem.Type? _screen;
+
     /// <returns>Null when no object menu is open or its state cannot be reached.</returns>
     public static MenuState? Read()
     {
         // ReduxUISystem.IsUIActive (ReduxUISystem.c:1859) and GetStateByUI (843).
         var ui = GameSingleton.Existing<ReduxUISystem>();
-        var screen = Il2CppType.Of<WebUI_SelectMenu>();
+        var screen = _screen ??= Il2CppType.Of<WebUI_SelectMenu>();
 
         if (ui == null || !ui.IsUIActive(screen)) return null;
 

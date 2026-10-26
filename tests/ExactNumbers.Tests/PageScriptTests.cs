@@ -117,6 +117,73 @@ public class PageScriptTests
         Assert.Equal(TwoCostMarks, page.MenuChip("SelectMenu", 0, 0));
     }
 
+    /// <summary>
+    /// The poll runs four times a second for as long as the game runs. Once it has found the menu and the observer
+    /// watches it, a poll must not search the menu page again or walk its buttons.
+    /// </summary>
+    [Fact]
+    public void A_poll_searches_nothing_once_the_menu_is_found_and_watched()
+    {
+        var page = MenuInFlight("Satiety:-12", TwoCostMarks);
+
+        page.AnswerGameMessages();
+
+        Assert.Equal(Estimate(-12), page.MenuChip("SelectMenu", 0, 0));
+
+        var searches = page.Searches;
+
+        page.Poll();
+        page.Poll();
+
+        Assert.Equal(searches, page.Searches);
+    }
+
+    /// <summary>
+    /// A menu the page draws again in place gets its numbers back, in one pass on the next frame however many changes the
+    /// redraw made, and the script's own edits in that pass do not wake it again.
+    /// </summary>
+    [Fact]
+    public void A_menu_drawn_again_in_place_gets_its_numbers_back_in_one_pass_on_the_next_frame()
+    {
+        var page = MenuInFlight("Satiety:-12", TwoCostMarks);
+
+        page.AnswerGameMessages();
+        page.DeliverMutations();
+
+        Assert.Equal(0, page.PendingFrames);
+
+        page.RedrawMenu("SelectMenu", Button(Cost(TwoCostMarks)));
+        page.DeliverMutations();
+        page.RedrawMenu("SelectMenu", Button(Cost(TwoCostMarks)));
+        page.DeliverMutations();
+
+        Assert.Equal(1, page.PendingFrames);
+        Assert.Equal(TwoCostMarks, page.MenuChip("SelectMenu", 0, 0));
+
+        page.Frame();
+
+        Assert.Equal(Estimate(-12), page.MenuChip("SelectMenu", 0, 0));
+
+        page.DeliverMutations();
+
+        Assert.Equal(0, page.PendingFrames);
+        Assert.Empty(page.Notes);
+    }
+
+    /// <summary>The poll no longer redoes the menu, so a redraw must be caught without one.</summary>
+    [Fact]
+    public void A_menu_drawn_again_in_place_needs_no_poll_to_get_its_numbers_back()
+    {
+        var page = MenuInFlight("Satiety:-12", TwoCostMarks);
+
+        page.AnswerGameMessages();
+        page.RedrawMenu("SelectMenu", Button(Cost(TwoCostMarks)));
+        page.DeliverMutations();
+        page.Frame();
+
+        Assert.Equal(Estimate(-12), page.MenuChip("SelectMenu", 0, 0));
+    }
+
     // ===== What is passed on =====
 
     [Fact]

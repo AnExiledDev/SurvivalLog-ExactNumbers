@@ -34,6 +34,9 @@ internal static class MeasureHooks
     private const int MaxDepth = 16;
 
     private static readonly List<Frame> Frames = new();
+
+    /// <summary>The crafting table's furniture function choices; only touched from the game's thread, in the brief hooks.</summary>
+    private static readonly BriefChoices Briefs = new();
     private static Measurer? _measurer;
     private static RecipeSites? _recipes;
     private static Action<string> _log = _ => { };
@@ -461,9 +464,8 @@ internal static class MeasureHooks
         // FillFurnitureBrief returns at once for an item that is not furniture (Reducer_Web_ToolTable.c:4308).
         if (furnitureId <= 0 || _recipes == null) return;
 
-        var configs = GameSingleton.Existing<ConfigManager>();
-        var furniture = configs?.Get_Config_Furniture(furnitureId);
-        var chosen = furniture == null || configs == null ? null : BriefFunc.Choose(furniture.SlotType, FuncsOf(configs, furniture));
+        var choice = ChoiceFor(furnitureId);
+        var chosen = choice.Func;
         var isMapped = chosen is { } func && preview.Length > 0 && func.Preview == preview;
 
         lock (Gate)
@@ -472,24 +474,46 @@ internal static class MeasureHooks
             else _recipes.Forget(recipeKey);
         }
 
+        if (!_isTracing) return;
+
         var outcome = isMapped ? "mapped" : chosen == null ? "none" : "mismatch, game shows " + preview;
 
-        _trace($"recipe key={recipeKey} item={productConfig?.ID ?? 0} furniture={furnitureId} slot={furniture?.SlotType ?? 0} func={chosen?.Id ?? 0} preview={chosen?.Preview ?? ""} -> {outcome}");
+        _trace($"recipe key={recipeKey} item={productConfig?.ID ?? 0} furniture={furnitureId} slot={choice.SlotType} func={chosen?.Id ?? 0} preview={chosen?.Preview ?? ""} -> {outcome}");
     }
 
-    /// <summary>ConfigManager.Get_Config_FurnitureFunc (ConfigManager.c:12696) for each of the furniture's functions, in order.</summary>
+    /// <summary>Read once per furniture and kept while the game's furniture table stays the same object.</summary>
+    private static BriefChoice ChoiceFor(int furnitureId)
+    {
+        var configs = GameSingleton.Existing<ConfigManager>();
+        var furnitures = configs?._Config_Furniture_Dict;
+
+        if (configs == null || furnitures == null) return default;
+
+        if (Briefs.TryGet(furnitures.Pointer.ToInt64(), furnitureId, out var known)) return known;
+
+        // The tables are read directly: Get_Config_Furniture and Get_Config_FurnitureFunc write an error to the game's
+        // log for every id they do not have.
+        var choice = furnitures.TryGetValue(furnitureId, out var furniture) && furniture != null
+            ? new BriefChoice(true, furniture.SlotType, BriefFunc.Choose(furniture.SlotType, FuncsOf(configs, furniture)))
+            : default;
+
+        Briefs.Put(furnitureId, choice);
+
+        return choice;
+    }
+
+    /// <summary>ConfigManager._Config_FurnitureFunc_Dict (read by Get_Config_FurnitureFunc, ConfigManager.c:12696) for each of the furniture's functions, in order.</summary>
     private static List<FurnitureFunc?> FuncsOf(ConfigManager configs, Config_Furniture furniture)
     {
         var funcs = new List<FurnitureFunc?>();
         var ids = furniture.FurnitureFunc;
+        var table = configs._Config_FurnitureFunc_Dict;
 
-        if (ids == null) return funcs;
+        if (ids == null || table == null) return funcs;
 
         for (var i = 0; i < ids.Count; i++)
         {
-            var func = configs.Get_Config_FurnitureFunc(ids[i]);
-
-            funcs.Add(func == null ? null : new FurnitureFunc(func.ID, func.RecommendWeight, func.PreviewAttrDelta));
+            funcs.Add(table.TryGetValue(ids[i], out var func) && func != null ? new FurnitureFunc(func.ID, func.RecommendWeight, func.PreviewAttrDelta) : null);
         }
 
         return funcs;

@@ -37,16 +37,30 @@ public static class LabelKey
     /// <returns>The site and the preview; no site for a plain preview or anything not written by For.</returns>
     public static (MeasureSite? Site, string Preview) Parse(string key)
     {
-        if (key.Length == 0 || key[0] != Mark) return (null, key);
+        var site = SiteOf(key, out var previewAt);
+
+        return site == null ? (null, key) : (site, key.Substring(previewAt));
+    }
+
+    /// <summary>The site alone, as Parse reads it, without copying out the preview.</summary>
+    public static MeasureSite? SiteOf(string key) => SiteOf(key, out _);
+
+    private static MeasureSite? SiteOf(string key, out int previewAt)
+    {
+        previewAt = 0;
+
+        if (key.Length == 0 || key[0] != Mark) return null;
 
         var first = key.IndexOf(Separator, 1);
         var second = first < 0 ? -1 : key.IndexOf(Separator, first + 1);
 
-        if (second < 0) return (null, key);
+        if (second < 0) return null;
 
-        if (!PositiveInt(key.AsSpan(1, first - 1), out var furniture) || !PositiveInt(key.AsSpan(first + 1, second - first - 1), out var func)) return (null, key);
+        if (!PositiveInt(key.AsSpan(1, first - 1), out var furniture) || !PositiveInt(key.AsSpan(first + 1, second - first - 1), out var func)) return null;
 
-        return (new MeasureSite(furniture, func), key.Substring(second + 1));
+        previewAt = second + 1;
+
+        return new MeasureSite(furniture, func);
     }
 
     private static bool PositiveInt(ReadOnlySpan<char> text, out int value) =>

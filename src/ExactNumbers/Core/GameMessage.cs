@@ -45,37 +45,45 @@ public static class GameMessage
     private const string PageMessageType = "8";
 
     /// <summary>SelectMenu.html reads btnList[i].attrDelta (line 537); ToolTable.html reads productAttrDelta (line 3433).</summary>
-    private static readonly HashSet<string> PreviewFields = new(StringComparer.Ordinal) { "attrDelta", "productAttrDelta" };
+    private const string PreviewField = "attrDelta";
 
+    private const string ProductPreviewField = "productAttrDelta";
+
+    /// <remarks>
+    /// A crafting table's message can be large, so it is read in place: the fields are found by index and the JSON is
+    /// parsed from the message itself, not from a copy. Only the page id is copied out.
+    /// </remarks>
     public static GameFacts Read(string? raw)
     {
         if (raw is null || raw.Length > MaxLength) return GameFacts.Nothing;
 
-        var parts = raw.Split(Separator, 4);
+        var pageAt = raw.IndexOf(Separator);
+        var nameAt = pageAt < 0 ? -1 : raw.IndexOf(Separator, pageAt + 1);
+        var jsonAt = nameAt < 0 ? -1 : raw.IndexOf(Separator, nameAt + 1);
 
-        if (parts.Length < 4 || parts[0] != PageMessageType) return GameFacts.Nothing;
+        if (jsonAt < 0 || !raw.AsSpan(0, pageAt).Equals(PageMessageType, StringComparison.Ordinal)) return GameFacts.Nothing;
 
-        var isMenu = parts[2] == MenuMessage;
+        var isMenu = raw.AsSpan(nameAt + 1, jsonAt - nameAt - 1).Equals(MenuMessage, StringComparison.Ordinal);
+        var pageId = isMenu ? raw.Substring(pageAt + 1, nameAt - pageAt - 1) : "";
 
         // Besides bad JSON: Parse throws ArgumentException on a lone surrogate in the text, and GetString throws
         // InvalidOperationException on one written as an escape.
         try
         {
-            using var document = JsonDocument.Parse(parts[3]);
+            using var document = JsonDocument.Parse(raw.AsMemory(jsonAt + 1));
 
             var data = document.RootElement;
-            var menu = isMenu ? MenuOf(parts[1], data) : null;
+            var menu = isMenu ? MenuOf(pageId, data) : null;
             var previews = new List<string>();
             var products = new List<RecipeProduct>();
 
-            CollectPreviews(data, previews);
-            CollectProducts(data, products);
+            Collect(data, previews, products);
 
             return new GameFacts(menu, previews, products);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or ArgumentException)
         {
-            return isMenu ? UnreadableMenu(parts[1]) : GameFacts.Nothing;
+            return isMenu ? UnreadableMenu(pageId) : GameFacts.Nothing;
         }
     }
 
@@ -118,42 +126,30 @@ public static class GameMessage
         return preview.ValueKind == JsonValueKind.String ? preview.GetString() ?? "" : "";
     }
 
-    /// <summary>Every preview in the message, so its numbers can be on the page before the first hover. JsonDocument caps the depth.</summary>
-    private static void CollectPreviews(JsonElement element, List<string> previews)
+    /// <summary>
+    /// In one walk of the message: every preview, so its numbers can be on the page before the first hover, and every
+    /// object holding both a product preview and a recipe key, as buildRecipeProduct reads them (ToolTable.html:3420-3434).
+    /// The key is a string there; a number is read as its text. JsonDocument caps the depth.
+    /// </summary>
+    private static void Collect(JsonElement element, List<string> previews, List<RecipeProduct> products)
     {
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
+                if (products.Count < MaxPreviews && ProductOf(element) is { } product) products.Add(product);
+
                 foreach (var property in element.EnumerateObject())
                 {
-                    if (PreviewFields.Contains(property.Name) && property.Value.ValueKind == JsonValueKind.String) Add(property.Value.GetString(), previews);
-                    else CollectPreviews(property.Value, previews);
+                    // NameEquals compares in place; property.Name would copy every name in the message out as a string.
+                    var isPreview = (property.NameEquals(PreviewField) || property.NameEquals(ProductPreviewField)) && property.Value.ValueKind == JsonValueKind.String;
+
+                    if (isPreview) Add(property.Value.GetString(), previews);
+                    else Collect(property.Value, previews, products);
                 }
 
                 break;
             case JsonValueKind.Array:
-                foreach (var item in element.EnumerateArray()) CollectPreviews(item, previews);
-
-                break;
-        }
-    }
-
-    /// <summary>
-    /// Every object holding both a product preview and a recipe key, as buildRecipeProduct reads them
-    /// (ToolTable.html:3420-3434). The key is a string there; a number is read as its text.
-    /// </summary>
-    private static void CollectProducts(JsonElement element, List<RecipeProduct> products)
-    {
-        switch (element.ValueKind)
-        {
-            case JsonValueKind.Object:
-                if (ProductOf(element) is { } product && products.Count < MaxPreviews) products.Add(product);
-
-                foreach (var property in element.EnumerateObject()) CollectProducts(property.Value, products);
-
-                break;
-            case JsonValueKind.Array:
-                foreach (var item in element.EnumerateArray()) CollectProducts(item, products);
+                foreach (var item in element.EnumerateArray()) Collect(item, previews, products);
 
                 break;
         }
@@ -161,7 +157,7 @@ public static class GameMessage
 
     private static RecipeProduct? ProductOf(JsonElement recipe)
     {
-        if (!recipe.TryGetProperty("productAttrDelta", out var preview) || preview.ValueKind != JsonValueKind.String) return null;
+        if (!recipe.TryGetProperty(ProductPreviewField, out var preview) || preview.ValueKind != JsonValueKind.String) return null;
         if (!recipe.TryGetProperty("recipeKey", out var key)) return null;
 
         var text = preview.GetString() ?? "";

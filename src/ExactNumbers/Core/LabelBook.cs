@@ -74,15 +74,35 @@ public sealed class LabelBook
     }
 
     /// <returns>The payload to resend for the keys of these furniture functions the page holds; null when it holds none.</returns>
-    public string? Remeasured(IEnumerable<MeasureSite> sites)
+    /// <remarks>The session asks every frame, nearly always with no sites: that answer allocates nothing.</remarks>
+    public string? Remeasured(IReadOnlyCollection<MeasureSite> sites)
     {
-        var changed = new HashSet<MeasureSite>(sites);
-        var keys = _sent
-            .Where(key => LabelKey.Parse(key).Site is { } site && changed.Contains(site))
-            .OrderBy(key => key, StringComparer.Ordinal)
-            .ToList();
+        if (sites.Count == 0 || _sent.Count == 0) return null;
 
-        return keys.Count == 0 ? null : PagePayload.Labels(keys, _modifiers, _measured, _isChinese);
+        List<string>? keys = null;
+
+        foreach (var key in _sent)
+        {
+            if (LabelKey.SiteOf(key) is not { } site || !Contains(sites, site)) continue;
+
+            (keys ??= new List<string>()).Add(key);
+        }
+
+        if (keys == null) return null;
+
+        keys.Sort(StringComparer.Ordinal);
+
+        return PagePayload.Labels(keys, _modifiers, _measured, _isChinese);
+    }
+
+    private static bool Contains(IReadOnlyCollection<MeasureSite> sites, MeasureSite site)
+    {
+        foreach (var each in sites)
+        {
+            if (each == site) return true;
+        }
+
+        return false;
     }
 
     /// <summary>A fresh page script holds no numbers, so nothing it was sent before needs resending.</summary>

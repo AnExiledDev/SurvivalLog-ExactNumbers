@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.3
+
+- Less stutter: saving the numbers the mod has measured no longer pauses the game for a moment.
+- The first menu you open after starting the game no longer makes the game hitch.
+- Menus and tooltips get their numbers with less work, so the mod costs the game less while you play.
+- Made for Survival Log 1.1.19611.
+
 ## 0.3.2
 
 - Fixed: furniture on the new workbench screen shows measured numbers again.

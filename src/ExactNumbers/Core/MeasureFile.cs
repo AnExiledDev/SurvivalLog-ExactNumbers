@@ -66,7 +66,10 @@ public static class MeasureFile
         }
     }
 
-    public static string Write(MeasureStore store, string version, IReadOnlyList<OtherVersion> others)
+    public static string Write(MeasureStore store, string version, IReadOnlyList<OtherVersion> others) => Write(store.Snapshot(), version, others);
+
+    /// <summary>The same from a snapshot, so the file can be written away from the game's thread.</summary>
+    public static string Write(MeasureSnapshot store, string version, IReadOnlyList<OtherVersion> others)
     {
         using var buffer = new MemoryStream();
 
@@ -141,13 +144,13 @@ public static class MeasureFile
         return recent;
     }
 
-    private static void WriteVersion(Utf8JsonWriter writer, MeasureStore store)
+    private static void WriteVersion(Utf8JsonWriter writer, MeasureSnapshot store)
     {
         writer.WriteStartObject();
         writer.WriteNumber("seq", store.Seq);
         writer.WriteStartArray("records");
 
-        foreach (var record in store.Records) WriteRecord(writer, record);
+        foreach (var record in store.Records.OrderBy(record => record.Seq)) WriteRecord(writer, record);
 
         writer.WriteEndArray();
         writer.WriteEndObject();

@@ -44,36 +44,35 @@ public abstract record PageCommand
     public static bool IsOurs(string? message) => message is not null && message.StartsWith(Prefix, StringComparison.Ordinal);
 
     /// <summary>Parses a whole message, prefix included.</summary>
+    /// <remarks>A game message can be large, so only the part kept is copied out of it, once.</remarks>
     public static PageCommand Parse(string message)
     {
         if (!IsOurs(message)) return new Unknown(message);
 
-        var body = message.Substring(Prefix.Length);
+        var body = message.AsSpan(Prefix.Length);
 
         // The key is the rest of the message, whatever it holds, so it reaches the plugin exactly as the page saw it.
         if (body.StartsWith(NeedVerb, StringComparison.Ordinal))
         {
-            var key = body.Substring(NeedVerb.Length);
+            var keyLength = body.Length - NeedVerb.Length;
 
-            return key.Length is > 0 and <= MaxKeyLength ? new Need(key) : new Unknown(message);
+            return keyLength is > 0 and <= MaxKeyLength ? new Need(message.Substring(Prefix.Length + NeedVerb.Length)) : new Unknown(message);
         }
 
-        if (body.StartsWith(GameVerb, StringComparison.Ordinal)) return ParseGame(body.Substring(GameVerb.Length));
+        if (body.StartsWith(GameVerb, StringComparison.Ordinal)) return ParseGame(message, Prefix.Length + GameVerb.Length);
 
-        return body switch
-        {
-            "ready" => new Ready(),
-            "noscript" => new NoScript(),
-            _ => new Unknown(message),
-        };
+        if (body.Equals("ready", StringComparison.Ordinal)) return new Ready();
+        if (body.Equals("noscript", StringComparison.Ordinal)) return new NoScript();
+
+        return new Unknown(message);
     }
 
-    /// <summary>"seq|message". A bad one is logged by its verb alone, since the message can be very long.</summary>
-    private static PageCommand ParseGame(string rest)
+    /// <summary>"seq|message" from start on. A bad one is logged by its verb alone, since the message can be very long.</summary>
+    private static PageCommand ParseGame(string message, int start)
     {
-        var bar = rest.IndexOf('|');
+        var bar = message.IndexOf('|', start);
 
-        if (bar > 0 && int.TryParse(rest.AsSpan(0, bar), NumberStyles.None, CultureInfo.InvariantCulture, out var seq)) return new Game(seq, rest.Substring(bar + 1));
+        if (bar > start && int.TryParse(message.AsSpan(start, bar - start), NumberStyles.None, CultureInfo.InvariantCulture, out var seq)) return new Game(seq, message.Substring(bar + 1));
 
         return new Unknown(Prefix + GameVerb + " without a message number");
     }

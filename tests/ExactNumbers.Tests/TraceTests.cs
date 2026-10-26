@@ -137,9 +137,63 @@ public class TraceTests
         var taken = buffer.Take();
 
         Assert.Equal(TraceBuffer.MaxLines + 1, taken.Count);
-        Assert.Equal("line 0", taken[0]);
-        Assert.Equal("line " + (TraceBuffer.MaxLines - 1), taken[taken.Count - 2]);
-        Assert.Equal("trace: 2 lines dropped, more than 20000 came between two saves", taken[taken.Count - 1]);
+        Assert.Equal("line 0", taken[0].Message);
+        Assert.Equal("line " + (TraceBuffer.MaxLines - 1), taken[taken.Count - 2].Message);
+        Assert.Equal("trace: 2 lines dropped, more than 20000 came between two saves", taken[taken.Count - 1].Message);
         Assert.Empty(buffer.Take());
+    }
+
+    /// <summary>
+    /// A cost call is kept as it is and its line built when the batch is written, off the game's thread; the line must be
+    /// the one the trace wrote at once before, made from the call as it was.
+    /// </summary>
+    [Fact]
+    public void A_kept_cost_call_is_written_as_the_same_line_it_would_have_been_at_once()
+    {
+        var call = Call(10, before: 50, funcId: 7, at: 3600);
+        var buffer = new TraceBuffer();
+
+        buffer.Add(TraceEntry.Cost(new DateTime(2026, 10, 26, 5, 0, 0, DateTimeKind.Utc), call, TickVerdict.Clamped));
+
+        Assert.Equal(TraceText.Cost(call, TickVerdict.Clamped), buffer.Take().Single().Message);
+    }
+
+    /// <summary>The trace is taken at every save; one with nothing in it must not make a new list each time.</summary>
+    [Fact]
+    public void Taking_an_empty_trace_hands_back_the_shared_empty_list()
+    {
+        var buffer = new TraceBuffer();
+
+        Assert.Same(Array.Empty<TraceEntry>(), buffer.Take());
+
+        buffer.Add("line");
+
+        Assert.Equal("line", buffer.Take().Single().Message);
+        Assert.Same(Array.Empty<TraceEntry>(), buffer.Take());
+    }
+
+    /// <summary>
+    /// The measurer's cost trace goes to the entry taker when it has one, so no line is built on the game's thread, and to
+    /// the plain line trace otherwise.
+    /// </summary>
+    [Fact]
+    public void A_measurer_hands_cost_calls_to_the_entry_taker_unbuilt_and_builds_lines_only_without_one()
+    {
+        var lines = new List<string>();
+        var calls = new List<(CostCall Call, TickVerdict Verdict)>();
+        var withTaker = new Measurer(new MeasureStore(), lines.Add, (call, verdict) => calls.Add((call, verdict)));
+        var call = Call(-5);
+
+        withTaker.Cost(call);
+
+        Assert.Empty(lines);
+        Assert.Same(call, calls.Single().Call);
+        Assert.Equal(TickVerdict.NoUse, calls.Single().Verdict);
+
+        var withoutTaker = new Measurer(new MeasureStore(), lines.Add);
+
+        withoutTaker.Cost(call);
+
+        Assert.Equal(TraceText.Cost(call, TickVerdict.NoUse), lines.Single());
     }
 }

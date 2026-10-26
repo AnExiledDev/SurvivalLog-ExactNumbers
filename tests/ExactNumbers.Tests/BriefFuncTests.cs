@@ -45,4 +45,56 @@ public class BriefFuncTests
     {
         Assert.Equal(2, BriefFunc.Choose(1, new[] { null, Func(2, 1, "Morale:+3"), Func(3, 4, null) })!.Value.Id);
     }
+
+    // ===== Choices kept between recipe lists =====
+
+    private static BriefChoice Choice(int funcId) => new(true, 1, new FurnitureFunc(funcId, 5, "Satiety:+10"));
+
+    /// <summary>A recipe list asks for the same furniture again and again; the choice is read from the configs once.</summary>
+    [Fact]
+    public void A_choice_is_kept_for_the_config_table_it_was_read_from()
+    {
+        var choices = new BriefChoices();
+
+        Assert.False(choices.TryGet(100, 500, out _));
+
+        choices.Put(500, Choice(7));
+
+        Assert.True(choices.TryGet(100, 500, out var kept));
+        Assert.Equal(7, kept.Func!.Value.Id);
+        Assert.False(choices.TryGet(100, 501, out _));
+    }
+
+    /// <summary>Loading a game can load the configs again; a choice read from the old table must not outlive it.</summary>
+    [Fact]
+    public void A_new_config_table_drops_every_choice_read_from_the_old_one()
+    {
+        var choices = new BriefChoices();
+
+        choices.TryGet(100, 500, out _);
+        choices.Put(500, Choice(7));
+
+        Assert.False(choices.TryGet(200, 500, out _));
+
+        choices.Put(500, Choice(8));
+
+        Assert.True(choices.TryGet(200, 500, out var kept));
+        Assert.Equal(8, kept.Func!.Value.Id);
+        Assert.False(choices.TryGet(100, 500, out _));
+    }
+
+    [Fact]
+    public void Past_the_cap_a_choice_is_not_kept()
+    {
+        var choices = new BriefChoices();
+
+        choices.TryGet(100, 0, out _);
+
+        for (var id = 1; id <= BriefChoices.MaxKept; id++) choices.Put(id, Choice(7));
+
+        choices.Put(BriefChoices.MaxKept + 1, Choice(7));
+
+        Assert.True(choices.TryGet(100, BriefChoices.MaxKept, out _));
+        Assert.False(choices.TryGet(100, BriefChoices.MaxKept + 1, out _));
+    }
 }

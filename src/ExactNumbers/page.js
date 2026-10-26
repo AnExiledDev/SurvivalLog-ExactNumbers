@@ -11,7 +11,8 @@
   if (window.__slexactnumbers) return;
 
   var PREFIX = 'slmod|exactnumbers|';
-  var POLL_MS = 200;
+  // Only finds pages that just opened; whatever is already open is watched or patched once.
+  var POLL_MS = 250;
   var ASK_AGAIN_MS = 3000;
   var MARK = '__slexactnumbers';
   var VANILLA_ATTR = 'data-slexact-vanilla';
@@ -218,25 +219,76 @@
 
   // Each button's data-index is its place in the message's btnList (SelectMenu.html:439-443, openMenu from 675), and its
   // tooltip chips come from btnList[i].attrDelta (line 537).
-  function patchSelectMenu(win, doc, frame) {
-    var container = doc.getElementById('menu-container');
+  function patchSelectMenu(win, doc, frame, updated) {
+    var container = menuContainer(doc);
     var pageId = frame.id;
 
     if (!container) return;
 
-    // The page rebuilds the menu on every open; the observer puts the numbers in before the first hover.
+    // The page rebuilds the menu on every open; the observer puts the numbers in before the first hover. Once it
+    // watches the menu, a plain poll has nothing to do here: a redraw wakes the observer, and every answer from the
+    // plugin comes through setLabels with the keys it updated.
     if (!container[MARK]) {
-      container[MARK] = true;
-      new win.MutationObserver(function () {
+      container[MARK] = watchMenu(win, container, pageId);
+    } else if (!updated) {
+      return;
+    }
+
+    applyMenu(win, container, pageId);
+    // The pass just read the menu as it is now, so what the observer holds is done, the script's own edits included.
+    container[MARK].takeRecords();
+  }
+
+  // Kept on the document and reused while it is still in it, so a poll does not search the menu page again.
+  function menuContainer(doc) {
+    var container = doc[MARK];
+
+    if (container && container.isConnected) return container;
+
+    container = doc.getElementById('menu-container');
+    doc[MARK] = container;
+
+    return container;
+  }
+
+  // One pass per frame however many changes the page makes while it draws a menu, and none for the script's own edits:
+  // their records are taken and dropped after the pass.
+  function watchMenu(win, container, pageId) {
+    var isPending = false;
+    var observer = new win.MutationObserver(function (records) {
+      if (isPending || !hasNodeChanges(records)) return;
+
+      isPending = true;
+      nextFrame(win, function () {
+        isPending = false;
+
         try {
           applyMenu(win, container, pageId);
         } catch (e) {
           diag('menu redraw', e);
         }
-      }).observe(container, { childList: true, subtree: true });
+
+        observer.takeRecords();
+      });
+    });
+
+    observer.observe(container, { childList: true, subtree: true });
+
+    return observer;
+  }
+
+  function hasNodeChanges(records) {
+    for (var i = 0; i < records.length; i++) {
+      if (records[i].addedNodes.length || records[i].removedNodes.length) return true;
     }
 
-    applyMenu(win, container, pageId);
+    return false;
+  }
+
+  // Before the page is painted, so the numbers are in place the first time the menu shows.
+  function nextFrame(win, callback) {
+    if (typeof win.requestAnimationFrame === 'function') win.requestAnimationFrame(callback);
+    else callback();
   }
 
   function applyMenu(win, container, pageId) {

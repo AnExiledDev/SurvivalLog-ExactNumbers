@@ -16,6 +16,25 @@ function poll() {
   intervals.slice().forEach(function (callback) { callback(); });
 }
 
+// requestAnimationFrame on the page windows: callbacks wait here until a test runs the next frame.
+var animationFrames = [];
+
+function requestAnimationFrame(callback) {
+  animationFrames.push(callback);
+
+  return animationFrames.length;
+}
+
+function frame() {
+  var due = animationFrames;
+
+  animationFrames = [];
+  due.forEach(function (callback) { callback(); });
+}
+
+// Every getElementById, querySelector and querySelectorAll on any fake page, so a test can see a poll search nothing.
+var searches = 0;
+
 var FakeElement = class {
   constructor(tagName, className) {
     var element = this;
@@ -24,7 +43,7 @@ var FakeElement = class {
     this.id = '';
     this.parentElement = null;
     this.children = [];
-    this.textContent = '';
+    this.text = '';
     this.offsetWidth = 0;
     this.attrs = {};
     this.classes = className ? className.split(' ') : [];
@@ -46,6 +65,23 @@ var FakeElement = class {
 
   get lastElementChild() { return this.children.length ? this.children[this.children.length - 1] : null; }
 
+  // In a browser, setting the text replaces the element's text node, which a watching MutationObserver hears.
+  get textContent() { return this.text; }
+
+  set textContent(value) {
+    this.text = String(value);
+    noteMutation(this, { type: 'childList', addedNodes: [{ nodeType: 3 }], removedNodes: [{ nodeType: 3 }] });
+  }
+
+  // In a document: under the body of one, however deep.
+  get isConnected() {
+    for (var element = this; element; element = element.parentElement) {
+      if (element.isBody) return true;
+    }
+
+    return false;
+  }
+
   // The title property reflects the attribute, as in a browser.
   get title() { return this.getAttribute('title') || ''; }
 
@@ -62,6 +98,7 @@ var FakeElement = class {
   appendChild(child) {
     child.parentElement = this;
     this.children.push(child);
+    noteMutation(this, { type: 'childList', addedNodes: [child], removedNodes: [] });
 
     return child;
   }
@@ -69,6 +106,7 @@ var FakeElement = class {
   removeChild(child) {
     this.children = this.children.filter(function (c) { return c !== child; });
     child.parentElement = null;
+    noteMutation(this, { type: 'childList', addedNodes: [], removedNodes: [child] });
 
     return child;
   }
@@ -101,11 +139,15 @@ var FakeElement = class {
   }
 
   querySelectorAll(selector) {
-    return descendantsOf(this).filter(function (element) { return element.matches(selector); });
+    searches += 1;
+
+    return matching(this, selector);
   }
 
   querySelector(selector) {
-    return this.querySelectorAll(selector)[0] || null;
+    searches += 1;
+
+    return matching(this, selector)[0] || null;
   }
 
   getBoundingClientRect() { return { left: 0, right: 0, top: 0, bottom: 0 }; }
@@ -118,6 +160,10 @@ function selectorSteps(selector) {
   if (steps.join('') !== selector) throw new Error('the fake page does not know the selector "' + selector + '"');
 
   return steps;
+}
+
+function matching(root, selector) {
+  return descendantsOf(root).filter(function (element) { return element.matches(selector); });
 }
 
 function matchesStep(element, step) {
@@ -139,10 +185,13 @@ var FakeDocument = class {
   constructor() {
     this.readyState = 'complete';
     this.body = new FakeElement('body');
+    this.body.isBody = true;
     this.listeners = {};
   }
 
   getElementById(id) {
+    searches += 1;
+
     return descendantsOf(this.body).filter(function (element) { return element.id === id; })[0] || null;
   }
 
@@ -155,12 +204,43 @@ var FakeDocument = class {
   }
 };
 
-// Never fires: the tests run the script's poll instead, which applies the same numbers.
-var FakeMutationObserver = class {
-  constructor(callback) { this.callback = callback; }
+// Hears the fake DOM's own changes under what it observes (always childList and subtree, all the script asks for).
+// Records wait until a test delivers them, as a browser delivers them after the change that made them.
+var observers = [];
 
-  observe() {}
+var FakeMutationObserver = class {
+  constructor(callback) {
+    this.callback = callback;
+    this.targets = [];
+    this.records = [];
+    observers.push(this);
+  }
+
+  observe(target) { this.targets.push(target); }
+
+  takeRecords() {
+    var taken = this.records;
+
+    this.records = [];
+
+    return taken;
+  }
 };
+
+function noteMutation(target, record) {
+  observers.forEach(function (observer) {
+    if (observer.targets.some(function (watched) { return watched.contains(target); })) observer.records.push(record);
+  });
+}
+
+// Each observer with records gets them all in one call.
+function deliverMutations() {
+  observers.forEach(function (observer) {
+    var records = observer.takeRecords();
+
+    if (records.length) observer.callback(records, observer);
+  });
+}
 
 // Root.html's own document, which holds the page iframes.
 var document = new FakeDocument();
@@ -207,7 +287,7 @@ function addFrame(id, src, win, doc) {
 }
 
 function pageWindow() {
-  return { MutationObserver: FakeMutationObserver, innerWidth: 1920 };
+  return { MutationObserver: FakeMutationObserver, requestAnimationFrame: requestAnimationFrame, innerWidth: 1920 };
 }
 
 // An object menu as the game shows one: a fresh iframe under the page id replaces the last open's, and SelectMenu.html
@@ -217,11 +297,23 @@ function openMenu(pageId, buttons) {
   var old = document.getElementById(pageId);
   var doc = new FakeDocument();
   var container = doc.body.appendChild(new FakeElement('div'));
-  var column = container.appendChild(new FakeElement('div', 'menu-col maint'));
 
   if (old) old.parentElement.removeChild(old);
 
   container.id = 'menu-container';
+  drawButtons(container.appendChild(new FakeElement('div', 'menu-col maint')), buttons);
+  addFrame(pageId, 'https://game.local/UI/SelectMenu/SelectMenu.html', pageWindow(), doc);
+}
+
+// The open menu drawing its buttons again in the same container, with the game's marks.
+function redrawMenu(pageId, buttons) {
+  var column = document.getElementById(pageId).contentDocument.getElementById('menu-container').children[0];
+
+  column.empty();
+  drawButtons(column, buttons);
+}
+
+function drawButtons(column, buttons) {
   buttons.forEach(function (chips, index) {
     var button = column.appendChild(new FakeElement('div', 'menu-btn'));
     var tooltip = button.appendChild(new FakeElement('div', 'menu-btn-tooltip'));
@@ -229,7 +321,6 @@ function openMenu(pageId, buttons) {
     button.setAttribute('data-index', index);
     drawChips(tooltip.appendChild(new FakeElement('div', 'tip-attrs')), chips);
   });
-  addFrame(pageId, 'https://game.local/UI/SelectMenu/SelectMenu.html', pageWindow(), doc);
 }
 
 function menuChip(pageId, button, chip) {

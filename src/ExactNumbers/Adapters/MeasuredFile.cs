@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading;
 using ExactNumbers.Core;
 
 namespace ExactNumbers.Adapters;
@@ -20,6 +21,7 @@ internal sealed class MeasuredFile
     private IReadOnlyList<OtherVersion> _others = Array.Empty<OtherVersion>();
     private bool _hasReportedSaveFailure;
     private bool _isSaveDisabled;
+    private string? _failure;
 
     public MeasuredFile(string path, string version, Action<string> log)
     {
@@ -53,8 +55,11 @@ internal sealed class MeasuredFile
         }
     }
 
-    /// <summary>Never throws; a failed save is reported once and tried again at the next save.</summary>
-    public void Save(MeasureStore store)
+    /// <summary>
+    /// Writes the snapshot and marks it saved in the store. Runs on the file worker, so it does not log: a failure is
+    /// kept for ReportFailure and tried again at the next save. Never throws.
+    /// </summary>
+    public void Save(MeasureSnapshot snapshot, MeasureStore store)
     {
         if (_isSaveDisabled) return;
 
@@ -62,16 +67,25 @@ internal sealed class MeasuredFile
 
         try
         {
-            File.WriteAllText(temporary, MeasureFile.Write(store, _version, _others), new UTF8Encoding(false));
+            File.WriteAllText(temporary, MeasureFile.Write(snapshot, _version, _others), new UTF8Encoding(false));
             File.Move(temporary, _path, true);
-            store.Saved();
+            store.Saved(snapshot);
         }
         catch (Exception ex)
         {
-            if (!_hasReportedSaveFailure) _log("could not save the measurements (reported once): " + ex.Message);
-
-            _hasReportedSaveFailure = true;
+            Interlocked.Exchange(ref _failure, ex.Message);
         }
+    }
+
+    /// <summary>On the main thread: logs the first failed save of the session. Never throws.</summary>
+    public void ReportFailure()
+    {
+        var failure = Interlocked.Exchange(ref _failure, null);
+
+        if (failure == null || _hasReportedSaveFailure) return;
+
+        _hasReportedSaveFailure = true;
+        _log("could not save the measurements (reported once): " + failure);
     }
 
     private MeasureStore SetAside(string reason)

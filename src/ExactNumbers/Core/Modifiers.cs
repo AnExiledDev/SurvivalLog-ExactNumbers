@@ -22,8 +22,23 @@ public sealed class Modifiers
     public float? RatioFor(Stat stat, bool isGain) => _ratios.TryGetValue(new RatioKey(stat, isGain), out var ratio) ? ratio : null;
 
     /// <summary>Exact comparison on purpose: any change at all means the numbers on the page are stale.</summary>
-    public bool SameAs(Modifiers other) =>
-        _ratios.Count == other._ratios.Count && _ratios.All(pair => other._ratios.TryGetValue(pair.Key, out var ratio) && ratio.Equals(pair.Value));
+    public bool SameAs(Modifiers other) => ReferenceEquals(this, other) || Holds(other._ratios);
+
+    /// <summary>
+    /// Whether these are exactly the ratios just read, compared without allocating, so a read that found nothing new
+    /// can keep this instance; see SameAs.
+    /// </summary>
+    public bool Holds(Dictionary<RatioKey, float> ratios)
+    {
+        if (_ratios.Count != ratios.Count) return false;
+
+        foreach (var pair in _ratios)
+        {
+            if (!ratios.TryGetValue(pair.Key, out var ratio) || !ratio.Equals(pair.Value)) return false;
+        }
+
+        return true;
+    }
 
     /// <summary>For the log: every ratio that was read, in a fixed order.</summary>
     public string Describe()

@@ -146,4 +146,57 @@ public class MeasureStoreTests
 
         Assert.False(store.IsDirty);
     }
+
+    /// <summary>
+    /// The save is written on another thread from a snapshot. A measurement made while it was being written is not in
+    /// that file, so the store must still need saving afterwards, or it would only reach the file with a later one.
+    /// </summary>
+    [Fact]
+    public void A_measurement_made_while_a_snapshot_was_written_still_needs_saving()
+    {
+        var store = new MeasureStore();
+
+        store.Add(Sample(-14));
+
+        var snapshot = store.Snapshot();
+
+        store.Add(Sample(-14, site: new MeasureSite(9, 9)));
+        store.Saved(snapshot);
+
+        Assert.True(store.IsDirty);
+        Assert.Single(snapshot.Records);
+    }
+
+    [Fact]
+    public void A_snapshot_written_with_nothing_measured_since_leaves_nothing_to_save()
+    {
+        var store = new MeasureStore();
+
+        store.Add(Sample(-14));
+
+        var snapshot = store.Snapshot();
+
+        Assert.True(store.IsDirty);
+
+        store.Saved(snapshot);
+
+        Assert.False(store.IsDirty);
+    }
+
+    /// <summary>The snapshot is written while the store goes on changing; it must keep what it held when taken.</summary>
+    [Fact]
+    public void A_snapshot_keeps_the_records_as_they_were_when_it_was_taken()
+    {
+        var store = new MeasureStore();
+
+        store.Add(Sample(-14));
+
+        var snapshot = store.Snapshot();
+
+        store.Add(Sample(-20));
+
+        Assert.Equal(-14, snapshot.Records.Single().Low, 6);
+        Assert.Equal(1, snapshot.Records.Single().Count);
+        Assert.Equal(2, store.Find(snapshot.Records.Single().Key)!.Count);
+    }
 }

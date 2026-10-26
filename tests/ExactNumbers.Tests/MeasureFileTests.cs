@@ -45,6 +45,30 @@ public class MeasureFileTests
         Assert.False(load.Store.IsDirty);
     }
 
+    /// <summary>
+    /// The file is written on another thread from a snapshot while the game goes on measuring; it must hold the store as
+    /// it was when the snapshot was taken, and a later measurement waits for the next save.
+    /// </summary>
+    [Fact]
+    public void A_snapshot_is_written_as_the_store_was_when_it_was_taken()
+    {
+        var store = Store(Sample(12.25, reach: 60));
+        var snapshot = store.Snapshot();
+        var before = MeasureFile.Write(store, Version, Array.Empty<OtherVersion>());
+
+        store.Add(Sample(16, reach: 100, endedAtMax: true));
+        store.Add(Sample(4.5, isRate: true, site: ChairMorale.Site, stat: Stat.Morale));
+
+        var written = MeasureFile.Write(snapshot, Version, Array.Empty<OtherVersion>());
+        var load = MeasureFile.Read(written, Version)!;
+
+        Assert.Equal(before, written);
+        Assert.Equal(1, load.Store.Find(BedStamina)!.Count);
+        Assert.Null(load.Store.Find(ChairMorale));
+        Assert.Equal(1, load.Store.Seq);
+        Assert.NotEqual(written, MeasureFile.Write(store, Version, Array.Empty<OtherVersion>()));
+    }
+
     /// <summary>A game update can change any function's numbers, so they start over, but going back finds the old ones.</summary>
     [Fact]
     public void Another_game_versions_measurements_are_kept_but_not_used()

@@ -50,8 +50,22 @@ internal sealed class PageScript
 
     public double Number(string expression) => _engine.Evaluate($"Number({expression})").AsNumber();
 
-    /// <summary>One run of the script's 200 ms poll.</summary>
+    /// <summary>One run of the script's 250 ms poll.</summary>
     public void Poll() => Run("poll()");
+
+    /// <summary>Hands every MutationObserver the changes made under what it watches, as the browser does after a change.</summary>
+    public void DeliverMutations() => Run("deliverMutations()");
+
+    /// <summary>Runs the animation frame callbacks waiting now, as the browser does before it paints.</summary>
+    public void Frame() => Run("frame()");
+
+    public int PendingFrames => (int)Number("animationFrames.length");
+
+    /// <summary>getElementById, querySelector and querySelectorAll calls on every fake page so far.</summary>
+    public int Searches => (int)Number("searches");
+
+    /// <summary>The open menu draws its buttons again in its same container, with the game's marks.</summary>
+    public void RedrawMenu(string pageId, params string[] buttons) => Run($"redrawMenu({JsText.Literal(pageId)}, [{string.Join(",", buttons)}])");
 
     public void GameSends(string pageId, string name, string json) => Run($"gameSends({JsText.Literal(pageId)}, {JsText.Literal(name)}, {JsText.Literal(json)})");
 

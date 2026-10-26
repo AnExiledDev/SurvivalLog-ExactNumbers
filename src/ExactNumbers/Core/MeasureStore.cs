@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace ExactNumbers.Core;
 
@@ -64,6 +65,10 @@ public sealed class MeasureStore
     private readonly Dictionary<MeasureKey, MeasureRecord> _records = new();
     private long _seq;
 
+    // Counts every change; the store needs saving while the count differs from the one last saved.
+    private long _changes;
+    private long _savedChanges;
+
     public MeasureStore(long seq = 0)
     {
         _seq = Math.Max(0, seq);
@@ -74,13 +79,25 @@ public sealed class MeasureStore
     public long Seq => _seq;
 
     /// <summary>True when something changed since the last save.</summary>
-    public bool IsDirty { get; private set; }
+    public bool IsDirty => _changes != Volatile.Read(ref _savedChanges);
 
     public IEnumerable<MeasureRecord> Records => _records.Values.OrderBy(record => record.Seq);
 
     public MeasureRecord? Find(MeasureKey key) => _records.TryGetValue(key, out var record) ? record : null;
 
-    public void Saved() => IsDirty = false;
+    public void Saved() => Volatile.Write(ref _savedChanges, _changes);
+
+    /// <summary>
+    /// What is in the store now, to be written out on another thread while the store goes on changing. Records are
+    /// immutable, so the copy is only of the references.
+    /// </summary>
+    public MeasureSnapshot Snapshot() => new(_seq, _records.Values.ToArray(), _changes);
+
+    /// <summary>
+    /// The snapshot was written. Anything added after it was taken still needs saving. Safe to call from the thread
+    /// that wrote it, while only one snapshot is being written at a time.
+    /// </summary>
+    public void Saved(MeasureSnapshot snapshot) => Volatile.Write(ref _savedChanges, snapshot.Changes);
 
     /// <returns>The record after the sample, or null for an amount that is not a finite number.</returns>
     public MeasureRecord? Add(UseSample sample)
@@ -107,7 +124,7 @@ public sealed class MeasureStore
         Put(record with { Recent = record.Recent.TakeLast(MaxRecent).ToList() });
 
         _seq = Math.Max(_seq, record.Seq);
-        IsDirty = false;
+        Saved();
 
         return true;
     }
@@ -164,7 +181,7 @@ public sealed class MeasureStore
     private void Put(MeasureRecord record)
     {
         _records[record.Key] = record;
-        IsDirty = true;
+        _changes++;
 
         if (_records.Count <= MaxRecords) return;
 
@@ -173,3 +190,6 @@ public sealed class MeasureStore
         if (oldest != null) _records.Remove(oldest.Key);
     }
 }
+
+/// <summary>The store as it was at one moment: its seq, its records in no order, and how many changes it had seen.</summary>
+public sealed record MeasureSnapshot(long Seq, IReadOnlyList<MeasureRecord> Records, long Changes);

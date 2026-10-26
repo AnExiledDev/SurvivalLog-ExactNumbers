@@ -57,7 +57,10 @@ internal sealed class ExactLog
     }
 
     /// <summary>The time a line was logged, so a line written later in a batch still says when it happened.</summary>
-    public static string Stamp(string message) => $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}";
+    public static string Stamp(string message) => Stamp(DateTime.Now, message);
+
+    /// <summary>The same for a line that happened at a local time before it was written.</summary>
+    public static string Stamp(DateTime at, string message) => $"{at:yyyy-MM-dd HH:mm:ss.fff} {message}";
 
     /// <summary>One writer stays open so a busy frame is not paying for an open and close per line.</summary>
     private void AppendToFile(string line)

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
@@ -14,7 +15,7 @@ namespace ExactNumbers;
 public sealed class Plugin : BasePlugin
 {
     private const string Guid = "com.dev.survivallog.exactnumbers";
-    private const string Version = "0.3.2";
+    private const string Version = "0.3.3";
 
     public override void Load()
     {
@@ -56,7 +57,26 @@ public sealed class Plugin : BasePlugin
         ExactTicker.Session = session;
         ExactTicker.Log = log.Write;
         AddComponent<ExactTicker>();
+        WarmUpInBackground(log);
     }
+
+    /// <summary>
+    /// The first menu of a session would otherwise compile the mod's message, label and save code on the game's frame.
+    /// WarmUp is pure .NET on objects of its own, so it runs on a worker; a failure only costs that first menu its
+    /// head start, and is noted in the mod's file only (the BepInEx console is left to the game's thread).
+    /// </summary>
+    private static void WarmUpInBackground(ExactLog log) =>
+        Task.Run(() =>
+        {
+            try
+            {
+                WarmUp.Run();
+            }
+            catch (Exception ex)
+            {
+                log.WriteFileOnly("warm-up failed, the first menu may take a moment longer: " + ex.Message);
+            }
+        });
 
     /// <returns>Null when the stat hooks could not be applied; the chips then show the game's estimates.</returns>
     private static Measuring? StartMeasuring(Harmony harmony, ExactLog log, bool traceLog)
@@ -68,7 +88,7 @@ public sealed class Plugin : BasePlugin
         // Measurements are kept per game version: a patch can change what a function does.
         var version = UnityEngine.Application.version ?? "unknown";
         var file = new MeasuredFile(Path.Combine(Paths.BepInExRootPath, "exact-numbers-measured.json"), version, log.Write);
-        var measurer = new Measurer(file.Load(), trace);
+        var measurer = new Measurer(file.Load(), trace, buffered == null ? null : buffered.WriteCost);
         var recipes = new RecipeSites();
 
         if (!MeasureHooks.Apply(harmony, measurer, recipes, log.Write, trace))

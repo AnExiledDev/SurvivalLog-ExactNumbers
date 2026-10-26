@@ -13,15 +13,19 @@ public sealed class Measurer
     private readonly UseTracker _tracker = new();
     private readonly MeasureStore _store;
     private readonly Action<string> _trace;
-    private readonly bool _isTracing;
+    private readonly Action<CostCall, TickVerdict>? _traceCost;
     private readonly HashSet<MeasureSite> _changed = new();
 
     /// <param name="trace">Where trace lines go; null for none, and then no cost line is even built.</param>
-    public Measurer(MeasureStore store, Action<string>? trace = null)
+    /// <param name="traceCost">
+    /// Where cost calls go to be traced, when given: the call is handed over as it is and its line is built later, by
+    /// whoever writes the trace. Without it a cost line is built here and goes to trace.
+    /// </param>
+    public Measurer(MeasureStore store, Action<string>? trace = null, Action<CostCall, TickVerdict>? traceCost = null)
     {
         _store = store;
         _trace = trace ?? (_ => { });
-        _isTracing = trace != null;
+        _traceCost = trace == null ? null : traceCost ?? ((call, verdict) => trace(TraceText.Cost(call, verdict)));
     }
 
     public MeasureStore Store => _store;
@@ -31,7 +35,7 @@ public sealed class Measurer
         var verdict = _tracker.Tick(call);
 
         // Called for every stat change of the character: the line is long, so it is built only for a trace.
-        if (_isTracing) _trace(TraceText.Cost(call, verdict));
+        _traceCost?.Invoke(call, verdict);
 
         return verdict;
     }
@@ -93,8 +97,11 @@ public sealed class Measurer
     }
 
     /// <returns>The furniture functions with new measurements since the last call.</returns>
+    /// <remarks>Called every frame: with nothing new it returns the one shared empty list and allocates nothing.</remarks>
     public IReadOnlyList<MeasureSite> TakeChanged()
     {
+        if (_changed.Count == 0) return Array.Empty<MeasureSite>();
+
         var changed = _changed.ToList();
 
         _changed.Clear();

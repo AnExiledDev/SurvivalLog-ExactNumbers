@@ -250,6 +250,36 @@ public class LabelBookTests
         Assert.DoesNotContain("\"Satiety:-12\":", resend);
     }
 
+    /// <summary>The session asks every frame, nearly always with no new measurement; that frame sends the page nothing.</summary>
+    [Fact]
+    public void A_frame_with_no_new_measurement_resends_nothing_while_a_later_one_still_resends()
+    {
+        var store = new MeasureStore();
+        var book = new LabelBook(store);
+
+        book.Answer("@500/7/Satiety:-12");
+        store.Add(BedSatiety(-10));
+
+        Assert.Null(book.Remeasured(Array.Empty<MeasureSite>()));
+        Assert.Contains("\"@500/7/Satiety:-12\":", book.Remeasured(new[] { new MeasureSite(500, 8), Bed }));
+    }
+
+    /// <summary>The page applies the keys in the order sent; the order is fixed, not the order they were asked in.</summary>
+    [Fact]
+    public void A_resend_lists_its_keys_in_one_fixed_order()
+    {
+        var store = new MeasureStore();
+        var book = new LabelBook(store);
+
+        book.Answer("@500/7/Stamina:-20");
+        book.Answer("@500/7/Satiety:-12");
+        store.Add(BedSatiety(-10));
+
+        var resend = book.Remeasured(new[] { Bed })!;
+
+        Assert.True(resend.IndexOf("@500/7/Satiety:-12", StringComparison.Ordinal) < resend.IndexOf("@500/7/Stamina:-20", StringComparison.Ordinal), resend);
+    }
+
     [Fact]
     public void A_new_measurement_for_a_function_the_page_holds_no_numbers_for_resends_nothing()
     {
