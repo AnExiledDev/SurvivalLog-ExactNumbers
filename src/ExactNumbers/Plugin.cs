@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using BepInEx;
 using BepInEx.Configuration;
@@ -15,7 +17,7 @@ namespace ExactNumbers;
 public sealed class Plugin : BasePlugin
 {
     private const string Guid = "com.dev.survivallog.exactnumbers";
-    private const string Version = "0.3.3";
+    private const string Version = "0.3.4";
 
     public override void Load()
     {
@@ -61,9 +63,10 @@ public sealed class Plugin : BasePlugin
     }
 
     /// <summary>
-    /// The first menu of a session would otherwise compile the mod's message, label and save code on the game's frame.
-    /// WarmUp is pure .NET on objects of its own, so it runs on a worker; a failure only costs that first menu its
-    /// head start, and is noted in the mod's file only (the BepInEx console is left to the game's thread).
+    /// The first menu of a session would otherwise compile the mod's message, label, save and menu-reading code on the
+    /// game's frame. WarmUp is pure .NET on objects of its own, so it runs on a worker, and then the rest of the code is
+    /// compiled without being run, so nothing here touches the game. A failure only costs that first menu its head
+    /// start, and is noted in the mod's file only (the BepInEx console is left to the game's thread).
     /// </summary>
     private static void WarmUpInBackground(ExactLog log) =>
         Task.Run(() =>
@@ -71,12 +74,35 @@ public sealed class Plugin : BasePlugin
             try
             {
                 WarmUp.Run();
+
+                foreach (var type in typeof(WarmUp).Assembly.GetTypes())
+                {
+                    if (type.Namespace is CoreNamespace or AdaptersNamespace && !typeof(UnityEngine.MonoBehaviour).IsAssignableFrom(type)) Prepare(type);
+                }
             }
             catch (Exception ex)
             {
                 log.WriteFileOnly("warm-up failed, the first menu may take a moment longer: " + ex.Message);
             }
         });
+
+    private const string CoreNamespace = "ExactNumbers.Core";
+    private const string AdaptersNamespace = "ExactNumbers.Adapters";
+    private const BindingFlags Declared = BindingFlags.DeclaredOnly | BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+    /// <summary>
+    /// Compiles every method the type declares without running any. GetTypes lists nested types on their own, so the
+    /// lambdas and records inside a type get theirs too. The game's components are left to the game.
+    /// </summary>
+    private static void Prepare(Type type)
+    {
+        if (type.ContainsGenericParameters) return;
+
+        foreach (var method in type.GetMethods(Declared))
+        {
+            if (!method.IsAbstract && !method.ContainsGenericParameters) RuntimeHelpers.PrepareMethod(method.MethodHandle);
+        }
+    }
 
     /// <returns>Null when the stat hooks could not be applied; the chips then show the game's estimates.</returns>
     private static Measuring? StartMeasuring(Harmony harmony, ExactLog log, bool traceLog)

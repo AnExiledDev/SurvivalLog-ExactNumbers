@@ -42,7 +42,7 @@
     <AssemblyMetadata Include="ModManager.Description" Value="See the numbers behind the + and - marks in Survival Log's action tooltips: -10 satiety instead of two minus signs. Measured from what your character really got once you have used an action, the game's ~estimate until then.&#10;把动作提示里的 + 和 - 符号换成具体数字，用过一次后显示角色实际得到的数值。" />
     <AssemblyMetadata Include="ModManager.Author" Value="AnExiledDev" />
     <AssemblyMetadata Include="ModManager.Category" Value="Interface" />
-    <AssemblyMetadata Include="ModManager.GameVersion" Value="1.1.19611" />
+    <AssemblyMetadata Include="ModManager.GameVersion" Value="1.1.20151" />
     <AssemblyMetadata Include="ModManager.Settings" Value="Restart" />
     <AssemblyMetadata Include="ModManager.NexusId" Value="63" />
     <AssemblyMetadata Include="ModManager.GitHub" Value="AnExiledDev/SurvivalLog-ExactNumbers" />

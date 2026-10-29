@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.4
+
+- Less hitch on the first object menu you open after starting the game.
+- Made for Survival Log 1.1.20151.
+
 ## 0.3.3
 
 - Less stutter: saving the numbers the mod has measured no longer pauses the game for a moment.
