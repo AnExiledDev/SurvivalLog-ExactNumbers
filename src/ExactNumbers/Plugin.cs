@@ -100,7 +100,16 @@ public sealed class Plugin : BasePlugin
 
         foreach (var method in type.GetMethods(Declared))
         {
-            if (!method.IsAbstract && !method.ContainsGenericParameters) RuntimeHelpers.PrepareMethod(method.MethodHandle);
+            if (method.IsAbstract || method.ContainsGenericParameters) continue;
+
+            // A method that names Exiled's Toolkit cannot compile without it; skip it and go on with the rest.
+            try
+            {
+                RuntimeHelpers.PrepareMethod(method.MethodHandle);
+            }
+            catch (Exception)
+            {
+            }
         }
     }
 
