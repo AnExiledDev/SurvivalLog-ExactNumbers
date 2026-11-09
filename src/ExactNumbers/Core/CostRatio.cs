@@ -4,14 +4,14 @@ namespace ExactNumbers.Core;
 public readonly record struct RatioStat(int BaseValue, int StrengtheningValue, int Min, int Max, bool IsSingle);
 
 /// <summary>
-/// The game's own scaling of a stat change. AttributeComponent.CostAttrValue multiplies every change to satiety, mood,
+/// The game's scaling of a stat change. AttributeComponent.CostAttrValue multiplies every change to satiety, mood,
 /// energy and life by (1 + ratio), where ratio is the matching ratio stat (base plus strengthening, held between its
 /// min and max) divided by GameKey.Attr_ScalingRatio, or 0 for a ratio stat that is not a plain value. The game clears
 /// the stat's condition part before each change, so it is left out here too.
 /// </summary>
 public static class CostRatio
 {
-    /// <returns>Null when the scaling constant would make the game's own result meaningless, so the base is shown instead.</returns>
+    /// <returns>Null when the scaling constant would make the game's result meaningless, so the base is shown instead.</returns>
     public static float? Of(RatioStat stat, float scalingRatio)
     {
         if (!stat.IsSingle) return 0f;

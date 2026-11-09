@@ -4,7 +4,7 @@ Summary: See real numbers in action tooltips where the game shows + and - marks:
 Description (BBCode):
 [center][img]https://sldb.core-directive.com/media/save/1-save-safe.png[/img][/center]
 
-When you hover an action on an object, Survival Log shows what it does to satiety, mood, energy and life, but only as one to three + or - marks. Exact Numbers swaps each mark for a number. At first that is the game's own estimate, marked with ~. Once you have used the action, it is the amount your character really got. It only changes what the tooltip says; it never changes your character, the world or a save.
+When you hover an action on an object, Survival Log shows what it does to satiety, mood, energy and life, but only as one to three + or - marks. Exact Numbers swaps each mark for a number. At first that is the game's estimate, marked with ~. Once you have used the action, it is the amount your character really got. It only changes what the tooltip says; it never changes your character, the world or a save.
 
 [size=5]Main features[/size]
 [list]

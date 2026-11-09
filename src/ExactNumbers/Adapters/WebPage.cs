@@ -6,7 +6,7 @@ using GameCore.HotUpdate.ReduxUI;
 namespace ExactNumbers.Adapters;
 
 /// <summary>
-/// The mod's half that lives in the game's web UI: page.js, run in the root document the game's own pages sit in. It
+/// The mod's half that lives in the game's web UI: page.js, run in the root document the game's pages sit in. It
 /// puts the numbers into the tooltip chips. The web view can reload at any time and lose the script, so it is checked
 /// for every couple of seconds and put back when the page says it is missing.
 /// </summary>

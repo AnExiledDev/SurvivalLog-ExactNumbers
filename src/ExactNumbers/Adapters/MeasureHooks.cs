@@ -412,7 +412,7 @@ internal static class MeasureHooks
 
     /// <summary>
     /// Notes which furniture function a furniture recipe's product chips come from, picked the way the game picks it
-    /// (BriefFunc), and only when the game's own pick shows the same preview.
+    /// (BriefFunc), and only when the game's pick shows the same preview.
     /// </summary>
     private static void AfterBrief(Config_Item productConfig, Data_Web_ToolTable_Recipe recipeData)
     {

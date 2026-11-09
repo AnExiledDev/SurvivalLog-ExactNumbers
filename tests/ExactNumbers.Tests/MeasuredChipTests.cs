@@ -86,7 +86,7 @@ public class MeasuredChipTests
     }
 
     /// <summary>
-    /// The fill effect is told from the game's own effect, not from amounts that differ, so even one use, or uses that
+    /// The fill effect is told from the game's effect, not from amounts that differ, so even one use, or uses that
     /// always start from the same level, keep the estimate.
     /// </summary>
     [Fact]
