@@ -1,4 +1,5 @@
 using ExactNumbers.Core;
+using ExiledToolkit.Web;
 using Jint;
 
 namespace ExactNumbers.Tests;
@@ -19,14 +20,24 @@ internal sealed class PageScript
     private readonly Queue<PageCommand.Need> _needs = new();
 
     /// <param name="measured">Null answers as with measuring off, as 0.1.0 did.</param>
-    public PageScript(MeasureStore? measured = null)
+    /// <param name="isToolkitFirst">
+    /// Whether Exiled's Toolkit's page API (api.js, from the Toolkit's source) runs before page.js, as it usually does.
+    /// False runs page.js alone; the test then loads the Toolkit with <see cref="LoadToolkit"/>.
+    /// </param>
+    public PageScript(MeasureStore? measured = null, bool isToolkitFirst = true)
     {
         _book = new LabelBook(measured);
         _isMeasuring = measured != null;
         _engine.Execute(Resource("ExactNumbers.Tests.FakePage.js"));
+
+        if (isToolkitFirst) _engine.Execute(Resource("ExiledToolkit.api.js"));
+
         _engine.Execute(Resource("ExactNumbers.page.js"));
         Hear();
     }
+
+    /// <summary>Runs the Toolkit's page API after page.js, as when the game sends page.js first.</summary>
+    public void LoadToolkit() => Run(Resource("ExiledToolkit.api.js"));
 
     /// <summary>The object menu state the plugin reads when it answers a menu message; measuring only.</summary>
     public MenuState? Menu { get; set; }
@@ -36,6 +47,9 @@ internal sealed class PageScript
 
     /// <summary>Every game message the script passed on to the plugin, as Root.html received it.</summary>
     public List<string> PassedOn { get; } = new();
+
+    /// <summary>Whether the script told the plugin it is ready, as it does when it starts.</summary>
+    public bool HasSaidReady { get; private set; }
 
     /// <summary>Anything else the script said, such as its "diag|" notes when something threw.</summary>
     public List<string> Notes { get; } = new();
@@ -50,7 +64,7 @@ internal sealed class PageScript
 
     public double Number(string expression) => _engine.Evaluate($"Number({expression})").AsNumber();
 
-    /// <summary>One run of the script's 250 ms poll.</summary>
+    /// <summary>One run of the Toolkit's 250 ms page check, which is how page.js finds the game's pages.</summary>
     public void Poll() => Run("poll()");
 
     /// <summary>Hands every MutationObserver the changes made under what it watches, as the browser does after a change.</summary>
@@ -137,6 +151,7 @@ internal sealed class PageScript
         switch (command)
         {
             case PageCommand.Ready:
+                HasSaidReady = true;
                 _book.PageReloaded();
                 break;
             case PageCommand.Game game:

@@ -5,14 +5,12 @@
 // are not put on another's chips that happen to share a preview. Every decision about what a message
 // means and what a chip should say is the plugin's; this script only carries messages and edits the DOM. It only
 // changes chip text, and only when the chip still shows exactly what the game drew for that preview, so a page a game
-// update reshaped stays as it was. Talks to the plugin through vuplex.postMessage("slmod|exactnumbers|<verb>") and is
-// driven by window.__slexactnumbers.
+// update reshaped stays as it was. Talks to the plugin through vuplex.postMessage("slmod|exactnumbers|<verb>"), is
+// driven by window.__slexactnumbers, and finds the game's pages with Exiled's Toolkit's watchPages.
 (function () {
   if (window.__slexactnumbers) return;
 
   var PREFIX = 'slmod|exactnumbers|';
-  // Only finds pages that just opened; whatever is already open is watched or patched once.
-  var POLL_MS = 250;
   var ASK_AGAIN_MS = 3000;
   var MARK = '__slexactnumbers';
   var VANILLA_ATTR = 'data-slexact-vanilla';
@@ -466,45 +464,47 @@
     { pattern: /ToolTable\.html/, patch: patchToolTable }
   ];
 
-  // updated holds the label keys whose numbers just arrived, or is null on a plain poll.
+  // One Toolkit page watch per entry of PAGES, once Exiled's Toolkit has loaded. Each asks at every check, which finds
+  // the pages that just opened; a page already patched returns at once.
+  var watches = [];
+  // The label keys whose numbers just arrived, while patchPages hands them to the pages; null on a plain check.
+  var updatedNow = null;
+
+  // updated holds the label keys whose numbers just arrived, or is null when only new pages are looked for. Before the
+  // Toolkit loads there are no watches yet; the first check of each watch patches whatever is open by then.
   function patchPages(updated) {
-    var frames = document.getElementsByTagName('iframe');
+    updatedNow = updated;
 
-    for (var i = 0; i < frames.length; i++) {
-      var src = frames[i].src || '';
-
-      for (var p = 0; p < PAGES.length; p++) {
-        if (PAGES[p].pattern.test(src)) patchFrame(frames[i], PAGES[p], src, updated);
-      }
+    try {
+      for (var i = 0; i < watches.length; i++) watches[i].refresh();
+    } finally {
+      updatedNow = null;
     }
   }
 
-  function patchFrame(frame, page, src, updated) {
-    var win = null;
-    var doc = null;
+  function watchGamePages(etk) {
+    for (var p = 0; p < PAGES.length; p++) watches.push(etk.watchPages(PAGES[p].pattern, patcherFor(PAGES[p]), { everyCheck: true }));
+  }
+
+  function patcherFor(page) {
+    return function (doc, frame) {
+      return patchFrame(frame, doc, page);
+    };
+  }
+
+  // False while the page is still loading, so the watch asks again.
+  function patchFrame(frame, doc, page) {
+    var win = frame.contentWindow;
+
+    if (!win) return diag('page access', 'cannot reach ' + frame.src);
+    if (doc.readyState === 'loading') return false;
 
     try {
-      win = frame.contentWindow;
-      doc = frame.contentDocument;
-    } catch (e) {}
-
-    if (!win || !doc) return diag('page access', 'cannot reach ' + src);
-    if (doc.readyState === 'loading') return;
-
-    try {
-      page.patch(win, doc, frame, updated);
+      page.patch(win, doc, frame, updatedNow);
     } catch (e) {
       diag(String(page.pattern), e);
     }
   }
-
-  setInterval(function () {
-    try {
-      patchPages(null);
-    } catch (e) {
-      diag('poll', e);
-    }
-  }, POLL_MS);
 
   try {
     listenToGame();
@@ -513,5 +513,7 @@
   }
 
   window.__slexactnumbers = { setLabels: setLabels, takeGame: takeGame };
+  // At once, not in the Toolkit's ready queue: until the plugin hears this, it sends a reloaded page no new numbers.
   send('ready');
+  (window.ExiledToolkitReady = window.ExiledToolkitReady || []).push(watchGamePages);
 })();

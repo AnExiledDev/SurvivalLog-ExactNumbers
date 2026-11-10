@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using BepInEx.Logging;
 using ExactNumbers.Core;
+using ExiledToolkit.Game;
 
 namespace ExactNumbers.Adapters;
 

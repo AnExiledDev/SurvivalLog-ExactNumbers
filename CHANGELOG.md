@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.5
+
+- Now uses Exiled's Toolkit for its shared parts, so it needs Exiled's Toolkit 0.19.0 or newer.
+- Made for Survival Log 1.1.20719.
+
 ## 0.3.4
 
 - Less hitch on the first object menu you open after starting the game.

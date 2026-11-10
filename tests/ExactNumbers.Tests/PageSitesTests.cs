@@ -1,4 +1,5 @@
 using ExactNumbers.Core;
+using ExiledToolkit.Web;
 using Xunit;
 
 namespace ExactNumbers.Tests;

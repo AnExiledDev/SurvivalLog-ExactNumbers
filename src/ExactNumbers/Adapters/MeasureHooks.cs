@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using ExactNumbers.Core;
+using ExiledToolkit.Game;
 using GameCore.HotUpdate;
 using GameCore.HotUpdate.Battle.Logic;
 using GameCore.HotUpdate.ReduxUI;
@@ -88,7 +89,7 @@ internal static class MeasureHooks
 
     /// <param name="trace">Where trace lines go; null when the trace is off.</param>
     /// <returns>False when the stat hooks could not all be applied; nothing is measured then.</returns>
-    public static bool Apply(Harmony harmony, Measurer measurer, RecipeSites recipes, Action<string> log, Action<string>? trace)
+    public static bool Apply(PatchKit hooks, Measurer measurer, RecipeSites recipes, Action<string> log, Action<string>? trace)
     {
         _measurer = measurer;
         _recipes = recipes;
@@ -98,16 +99,16 @@ internal static class MeasureHooks
 
         try
         {
-            Patch(harmony, typeof(AttributeComponent), nameof(AttributeComponent.CostAttrValue),
+            hooks.PatchOrThrow(typeof(MeasureHooks), typeof(AttributeComponent), nameof(AttributeComponent.CostAttrValue),
                 new[] { typeof(AttrName), typeof(float), typeof(long), typeof(EffectArgsType), typeof(bool), typeof(bool), typeof(VitalityChangeSourceType), typeof(int) },
                 prefix: nameof(BeforeCost), postfix: nameof(AfterCost));
-            Patch(harmony, typeof(BTEffectManager), nameof(BTEffectManager.TriggerAttrChange),
+            hooks.PatchOrThrow(typeof(MeasureHooks), typeof(BTEffectManager), nameof(BTEffectManager.TriggerAttrChange),
                 new[] { typeof(long), typeof(AttrName), typeof(float), typeof(float), typeof(float), typeof(long) },
                 prefix: nameof(SeeChange));
-            Patch(harmony, typeof(ActionComponent), nameof(ActionComponent.PlayAction), null, prefix: nameof(BeforePlay));
-            Patch(harmony, typeof(ActionComponent), nameof(ActionComponent.RemoveActionCall), null, prefix: nameof(BeforeRemove), postfix: nameof(AfterRemove));
-            Patch(harmony, typeof(ActionManager), nameof(ActionManager.TryExecuteFurnitureFuncReward), null, prefix: nameof(BeforeReward), postfix: nameof(AfterReward));
-            Patch(harmony, typeof(AE_AddCostAttr_Float), nameof(AE_AddCostAttr_Float.Run), null, prefix: nameof(BeforeFill), postfix: nameof(AfterFill));
+            hooks.PatchOrThrow(typeof(MeasureHooks), typeof(ActionComponent), nameof(ActionComponent.PlayAction), prefix: nameof(BeforePlay));
+            hooks.PatchOrThrow(typeof(MeasureHooks), typeof(ActionComponent), nameof(ActionComponent.RemoveActionCall), prefix: nameof(BeforeRemove), postfix: nameof(AfterRemove));
+            hooks.PatchOrThrow(typeof(MeasureHooks), typeof(ActionManager), nameof(ActionManager.TryExecuteFurnitureFuncReward), prefix: nameof(BeforeReward), postfix: nameof(AfterReward));
+            hooks.PatchOrThrow(typeof(MeasureHooks), typeof(AE_AddCostAttr_Float), nameof(AE_AddCostAttr_Float.Run), prefix: nameof(BeforeFill), postfix: nameof(AfterFill));
             log("measuring furniture functions");
         }
         catch (Exception ex)
@@ -118,40 +119,17 @@ internal static class MeasureHooks
             return false;
         }
 
-        try
-        {
-            Patch(harmony, typeof(Reducer_Web_ToolTable), nameof(Reducer_Web_ToolTable.FillFurnitureBrief), null, postfix: nameof(AfterBrief));
-        }
-        catch (Exception ex)
-        {
-            log("could not hook the crafting table's furniture previews, crafting chips keep the game's estimates: " + ex.Message);
-        }
+        hooks.Patch(typeof(MeasureHooks), typeof(Reducer_Web_ToolTable), nameof(Reducer_Web_ToolTable.FillFurnitureBrief), postfix: nameof(AfterBrief),
+            consequence: "crafting chips keep the game's estimates");
 
         // Builds that fill the brief on a blank row name it in GetOrBuildRecipeStatic; older builds have no such method.
         if (AccessTools.Method(typeof(Reducer_Web_ToolTable), "GetOrBuildRecipeStatic") != null)
         {
-            try
-            {
-                Patch(harmony, typeof(Reducer_Web_ToolTable), "GetOrBuildRecipeStatic", null, prefix: nameof(BeforeStatic), postfix: nameof(AfterStatic));
-            }
-            catch (Exception ex)
-            {
-                log("could not hook the crafting table's recipe list, furniture recipes keep the game's estimates: " + ex.Message);
-            }
+            hooks.Patch(typeof(MeasureHooks), typeof(Reducer_Web_ToolTable), "GetOrBuildRecipeStatic", prefix: nameof(BeforeStatic), postfix: nameof(AfterStatic),
+                consequence: "furniture recipes keep the game's estimates");
         }
 
         return true;
-    }
-
-    private static void Patch(Harmony harmony, Type type, string name, Type[]? arguments, string? prefix = null, string? postfix = null)
-    {
-        var target = (arguments == null ? AccessTools.Method(type, name) : AccessTools.Method(type, name, arguments))
-                     ?? throw new MissingMethodException(type.Name + "." + name);
-
-        harmony.Patch(
-            target,
-            prefix: prefix == null ? null : new HarmonyMethod(typeof(MeasureHooks), prefix),
-            postfix: postfix == null ? null : new HarmonyMethod(typeof(MeasureHooks), postfix));
     }
 
     private static bool IsDormant => Volatile.Read(ref _isDormant) != 0;

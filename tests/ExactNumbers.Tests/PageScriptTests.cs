@@ -1,4 +1,5 @@
 using ExactNumbers.Core;
+using ExiledToolkit.Web;
 using Xunit;
 
 namespace ExactNumbers.Tests;
@@ -182,6 +183,54 @@ public class PageScriptTests
         page.Frame();
 
         Assert.Equal(Estimate(-12), page.MenuChip("SelectMenu", 0, 0));
+    }
+
+    // ===== Load order =====
+
+    /// <summary>
+    /// The game can run page.js before Exiled's Toolkit's page API. The plugin must hear from the script at once, and the
+    /// game's menu messages must be passed on at once, or the first menu opened would get no numbers.
+    /// </summary>
+    [Fact]
+    public void A_script_loaded_before_the_toolkit_says_ready_and_passes_messages_on_at_once()
+    {
+        var page = new PageScript(isToolkitFirst: false);
+
+        page.GameSends("SelectMenu", GameMessage.MenuMessage, ButtonList("Satiety:-12"));
+
+        Assert.True(page.HasSaidReady);
+        Assert.Equal(new[] { Raw("SelectMenu", GameMessage.MenuMessage, ButtonList("Satiety:-12")) }, page.PassedOn);
+    }
+
+    [Fact]
+    public void A_menu_opened_before_the_toolkit_loads_gets_its_numbers_once_it_loads()
+    {
+        var page = new PageScript(isToolkitFirst: false);
+
+        page.GameSends("SelectMenu", GameMessage.MenuMessage, ButtonList("Satiety:-12"));
+        page.OpenMenu("SelectMenu", Button(Cost(TwoCostMarks)));
+        page.AnswerGameMessages();
+
+        Assert.Equal(TwoCostMarks, page.MenuChip("SelectMenu", 0, 0));
+
+        page.LoadToolkit();
+
+        Assert.Equal(Estimate(-12), page.MenuChip("SelectMenu", 0, 0));
+        Assert.Empty(page.Notes);
+    }
+
+    [Fact]
+    public void A_crafting_table_opened_before_the_toolkit_loads_gets_its_numbers_once_it_loads()
+    {
+        var page = new PageScript(isToolkitFirst: false);
+
+        page.OpenToolTable("{'Satiety:-12':[" + Cost(TwoCostMarks) + "]}");
+        page.LoadToolkit();
+        page.HoverRecipe("Satiety:-12");
+        page.AnswerNeeds();
+
+        Assert.Equal(Estimate(-12), page.RecipeChip(0, 0));
+        Assert.Empty(page.Notes);
     }
 
     // ===== What is passed on =====

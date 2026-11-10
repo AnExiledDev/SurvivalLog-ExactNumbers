@@ -1,5 +1,7 @@
 using System;
 using ExactNumbers.Core;
+using ExiledToolkit.Game;
+using ExiledToolkit.Web;
 using GameCore.HotUpdate.Battle.Logic;
 using UnityEngine;
 
@@ -33,6 +35,7 @@ internal sealed class ExactSession
     private static readonly TimeSpan QuitWait = TimeSpan.FromSeconds(5);
 
     private readonly WebPage _page;
+    private readonly PageMailbox _messages = PageInbox.Listen(PageCommand.Prefix);
     private readonly GameModifiers _modifiers;
     private readonly Measuring? _measuring;
     private readonly LabelBook _book;
@@ -108,7 +111,7 @@ internal sealed class ExactSession
 
         var resend = _book.Remeasured(measuring.Measurer.TakeChanged());
 
-        if (resend != null && _isPageReady) _page.Labels(resend);
+        if (resend != null && _isPageReady) SendLabels(resend);
 
         // A save still being written holds the next one back until it is done; nothing is lost, it is only later.
         if (!_save.IsDue(now) || _files.IsBusy) return;
@@ -149,7 +152,7 @@ internal sealed class ExactSession
 
         var resend = _book.Update(modifiers);
 
-        if (resend != null && _isPageReady) _page.Labels(resend);
+        if (resend != null && _isPageReady) SendLabels(resend);
     }
 
     /// <summary>Looked at before the page's requests too, so a language switch rewrites the words already on the page.</summary>
@@ -161,13 +164,15 @@ internal sealed class ExactSession
 
         var resend = _book.UpdateLanguage(_isChinese());
 
-        if (resend != null && _isPageReady) _page.Labels(resend);
+        if (resend != null && _isPageReady) SendLabels(resend);
     }
 
     private void TakePageCommands()
     {
-        while (PageMessages.TryTake(out var command))
+        while (_messages.TryTake(out var message))
         {
+            var command = PageCommand.Parse(message);
+
             switch (command)
             {
                 case PageCommand.Ready:
@@ -180,10 +185,10 @@ internal sealed class ExactSession
                     _page.Install();
                     break;
                 case PageCommand.Need need:
-                    _page.Labels(_book.Answer(need.Key));
+                    SendLabels(_book.Answer(need.Key));
                     break;
                 case PageCommand.Game game:
-                    _page.Game(AnswerGame(game));
+                    SendGame(AnswerGame(game));
                     break;
                 case PageCommand.Unknown unknown:
                     _log("page said: " + unknown.Text);
@@ -193,6 +198,12 @@ internal sealed class ExactSession
             }
         }
     }
+
+    /// <summary>Labels by preview text, as built by PagePayload.Labels.</summary>
+    private void SendLabels(string json) => _page.Call("setLabels(" + json + ")");
+
+    /// <summary>The answer to a passed-on game message, as built by PagePayload.Game.</summary>
+    private void SendGame(string json) => _page.Call("takeGame(" + json + ")");
 
     private string AnswerGame(PageCommand.Game game)
     {

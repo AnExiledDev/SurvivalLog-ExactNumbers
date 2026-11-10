@@ -282,6 +282,9 @@ function addFrame(id, src, win, doc) {
   frame.src = src;
   frame.contentWindow = win;
   frame.contentDocument = doc;
+  // The Toolkit's watchPages skips a frame whose document has no address yet, as a new frame's empty one has.
+  win.location = { href: src };
+  doc.defaultView = win;
 
   return frame;
 }

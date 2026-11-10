@@ -8,21 +8,26 @@ using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
 using ExactNumbers.Adapters;
 using ExactNumbers.Core;
+using ExiledToolkit;
+using ExiledToolkit.Game;
+using ExiledToolkit.Web;
 using HarmonyLib;
 
 namespace ExactNumbers;
 
 [BepInPlugin(Guid, "Exact Numbers", Version)]
-[BepInDependency(OptionalLive.ToolkitGuid, BepInDependency.DependencyFlags.SoftDependency)]
+[BepInDependency(ToolkitGuid, ToolkitVersion)]
 public sealed class Plugin : BasePlugin
 {
     private const string Guid = "com.dev.survivallog.exactnumbers";
-    private const string Version = "0.3.4";
+    private const string Version = "0.3.5";
+
+    /// <summary>Exiled's Toolkit: page messages, the page script's install, live settings and the game reads all come from it.</summary>
+    private const string ToolkitGuid = "com.dev.survivallog.exiledtoolkit";
+    private const string ToolkitVersion = ">=0.19.0";
 
     public override void Load()
     {
-        if (!OptionalLive.IsToolkitInstalled) Log.LogInfo(OptionalLive.MissingNote);
-
         var isEnabled = Config.Bind("General", "Enabled", true,
             "On (default) shows numbers in place of the + and - marks in the tooltips of object action menus and the crafting table. Off leaves every tooltip as the game draws it. Takes effect at the next game start.\n" +
             "开启时（默认），物件交互菜单和工作台的悬停提示里的 + 和 - 符号会换成具体数字。关闭时，所有提示都保持游戏原样。下次启动游戏时生效。").Value;
@@ -41,16 +46,21 @@ public sealed class Plugin : BasePlugin
 
         if (!isEnabled) return;
 
-        var harmony = new Harmony(Guid);
+        // Without the Toolkit's hook the page's requests never arrive, so a session would only re-post the install check forever.
+        if (!PageInbox.IsListening)
+        {
+            log.Write("Exiled's Toolkit cannot hear page messages, so Exact Numbers stays off");
 
-        // Without the patch the page's requests never arrive, so a session would only re-post the install check forever.
-        if (!PageMessages.Apply(harmony, log.Write)) return;
+            return;
+        }
 
-        var measuring = measure ? StartMeasuring(harmony, log, traceLog) : null;
+        var hooks = new PatchKit(new Harmony(Guid), log.Write);
+        var measuring = measure ? StartMeasuring(hooks, log, traceLog) : null;
+        var page = new WebPage(typeof(Plugin).Assembly, "ExactNumbers.page.js", "window.__slexactnumbers", PageCommand.Prefix + "noscript", log.Write);
 
-        var session = new ExactSession(new WebPage(log.Write), new GameModifiers(log.Write), measuring, GameLanguage.IsChinese, log.Write);
+        var session = new ExactSession(page, new GameModifiers(log.Write), measuring, GameLanguage.IsChinese, log.Write);
 
-        OptionalLive.Watch(applyModifiers, isApplying =>
+        LiveSettings.Watch(applyModifiers, isApplying =>
         {
             session.UseModifiers(isApplying);
             log.Write($"apply modifiers {isApplying}");
@@ -102,7 +112,7 @@ public sealed class Plugin : BasePlugin
         {
             if (method.IsAbstract || method.ContainsGenericParameters) continue;
 
-            // A method that names Exiled's Toolkit cannot compile without it; skip it and go on with the rest.
+            // A method that cannot be compiled ahead is compiled when it first runs instead; skip it and go on with the rest.
             try
             {
                 RuntimeHelpers.PrepareMethod(method.MethodHandle);
@@ -114,7 +124,7 @@ public sealed class Plugin : BasePlugin
     }
 
     /// <returns>Null when the stat hooks could not be applied; the chips then show the game's estimates.</returns>
-    private static Measuring? StartMeasuring(Harmony harmony, ExactLog log, bool traceLog)
+    private static Measuring? StartMeasuring(PatchKit hooks, ExactLog log, bool traceLog)
     {
         var buffered = traceLog ? new BufferedTrace(log) : null;
         Action<string>? trace = buffered == null ? null : buffered.Write;
@@ -126,7 +136,7 @@ public sealed class Plugin : BasePlugin
         var measurer = new Measurer(file.Load(), trace, buffered == null ? null : buffered.WriteCost);
         var recipes = new RecipeSites();
 
-        if (!MeasureHooks.Apply(harmony, measurer, recipes, log.Write, trace))
+        if (!MeasureHooks.Apply(hooks, measurer, recipes, log.Write, trace))
         {
             flushTrace();
 
