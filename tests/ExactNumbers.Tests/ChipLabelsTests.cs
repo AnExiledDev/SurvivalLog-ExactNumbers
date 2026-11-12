@@ -41,7 +41,7 @@ public class ChipLabelsTests
 
         var label = Assert.Single(ChipLabels.For("Satiety:-12", modifiers)!);
 
-        Assert.Equal(new ChipLabel(ChipKind.Cost, Minus + Minus, "~" + Minus + "15", Texts.EstimateTitle.En + "; listed " + Minus + "12 before your modifiers"), label);
+        Assert.Equal(new ChipLabel(ChipKind.Cost, Minus + Minus, "~" + Minus + "15", Texts.EstimateTitle.En + " Before your modifiers, the game lists " + Minus + "12."), label);
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public class ChipLabelsTests
         var label = Assert.Single(ChipLabels.For("Morale:+4", modifiers)!);
 
         Assert.Equal("~+6", label.Shown);
-        Assert.EndsWith("listed +4 before your modifiers", label.Title);
+        Assert.EndsWith("the game lists +4.", label.Title);
     }
 
     [Fact]

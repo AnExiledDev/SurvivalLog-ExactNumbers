@@ -1,16 +1,16 @@
 Name: Exact Numbers
-Summary: See real numbers in action tooltips where the game shows + and - marks: -10 satiety instead of two minus signs. Once you've used an action, it shows what your character actually got, scaled by your own modifiers, with the game's estimate (marked ~) until then. Only the tooltip changes, nothing in your game or your save.
+Summary: See real numbers in action tooltips where the game shows + and - marks, like -10 satiety instead of two minus signs. Once you've used an action, it shows what your character actually got. Until then it shows the game's estimate, marked with ~. The numbers include your character's modifiers. It only changes the tooltip, never your character or your save.
 
 Description (BBCode):
 [center][img]https://sldb.core-directive.com/media/save/1-save-safe.png[/img][/center]
 
-When you hover an action on an object, Survival Log shows what it does to satiety, mood, energy and life, but only as one to three + or - marks. Exact Numbers swaps each mark for a number. At first that is the game's estimate, marked with ~. Once you have used the action, it is the amount your character really got. It only changes what the tooltip says; it never changes your character, the world or a save.
+When you hover an action on an object, Survival Log shows what it does to satiety, mood, energy and life, but only as one to three + or - marks. Exact Numbers swaps each mark for a number. At first that is the game's estimate, marked with ~. Once you have used the action, it is the amount your character really got. It only changes what the tooltip says. It never changes your character, the world or a save.
 
 [size=5]Main features[/size]
 [list]
 [*][b]Numbers instead of marks[/b]: every + or - chip in an object's action menu tooltip and in the crafting table's product tooltip shows a number.[/*]
 [*][b]Measured numbers[/b]: when you finish using an object, the mod notes what the action really did and shows that from then on, without the ~.[/*]
-[*][b]Your character's modifiers[/b]: the game scales every satiety, mood, energy and life change by your character's own ratios. By default the numbers include that scaling. Where it changed a number, the chip's hover text also gives the number before it. You can turn this off in the config.[/*]
+[*][b]Your character's modifiers[/b]: the game scales every satiety, mood, energy and life change by your character's traits, buffs and conditions. By default the numbers include that scaling. When the scaling changes a number, the chip's hover text also gives the number before scaling. You can turn this off in the config.[/*]
 [*][b]Safe fallback[/b]: if anything does not look the way the mod expects, the tooltip stays exactly as the game drew it, or keeps the game's estimate.[/*]
 [/list]
 No hotkeys. Exact Numbers adds no data to your save and does not edit game files. You can remove it at any time.
@@ -20,20 +20,20 @@ Works in English and Chinese: the hover text and the words in the chips follow t
 [size=5]Measured and estimated[/size]
 A number with ~ in front is the game's estimate. A number without it was measured.
 
-The estimate comes from a short preview line in the game's data, such as Satiety:-12;Stamina:-20, which the game turns into marks. It is a summary written for the tooltip, not what the game applies: some costs tick over time, some amounts are random, some gains fill a stat up to a set amount, every stat stops at zero and at its maximum, and food types, difficulty, conditions and buffs can change the amount.
+The estimate comes from a short preview line in the game's data, such as Satiety:-12;Stamina:-20, which the game turns into marks. It is only a summary written for the tooltip, and what your character really gets can differ: some costs tick over time, some amounts are random, some gains fill a stat up to a set amount, every stat stops at zero and at its maximum, and food types, difficulty, conditions and buffs can change the amount.
 
-The measurement is what the action really did to your character, noted each time a use ends:
+A measured number is what the action really did to your character, saved each time a use ends:
 [list]
 [*][b]-10[/b]: the same amount every time.[/*]
 [*][b]+12 to +16[/b]: the amount changed between uses.[/*]
 [*][b]+4/h[/b]: for an action that runs until you stop it, the change per in-game hour.[/*]
 [*][b]~+20[/b]: not measured yet.[/*]
 [/list]
-The chip's hover text says which it is: "measured over 3 uses" or the game's estimate. Natural changes, uses you break off, and uses where the stat hit zero or its maximum are not counted. Actions that top a stat up to a level keep the ~ estimate, since no single number would be right. Each action is measured on its own object, and measurements are scaled by the modifiers your character has now.
+The chip's hover text says which it is, such as "Measured over 3 uses" or "~ means this is the game's estimate". Natural changes such as recovery over time, uses you break off, and uses where the stat hit zero or its maximum are not counted. Actions that top a stat up to a level keep the ~ estimate, since no single number would be right. Each action is measured on its own object, and measurements are scaled by the modifiers your character has now.
 
-The numbers learn as you play: an action shows the estimate until you have finished it once. Long actions that end on their own show a total per use, not per hour. Measurements are saved in BepInEx\exact-numbers-measured.json, per game version. Delete it to start over, or turn Measure off in the config for estimates only.
+The numbers fill in as you play. An action shows the estimate until you have finished it once. Long actions that end on their own show the total for the whole use instead of a number per hour. Measurements are saved in BepInEx\exact-numbers-measured.json, per game version. Delete it to start over, or turn Measure off in the config for estimates only.
 
-Max chips already show their number and are left alone. With the Action Speed mod, the ~ estimates are not scaled to the changed action time; measured numbers are what your character really got.
+Max chips already show their number and are left alone. With the Action Speed mod, the ~ estimates don't account for the changed action time, but measured numbers are what your character really got.
 
 [size=5]Known issues[/size]
 [list]
@@ -49,7 +49,7 @@ Max chips already show their number and are left alone. With the Action Speed mo
 [list]
 [*]Survival Log 1.1.20719. A game update can break it until the mod is updated.[/*]
 [*][url=https://www.nexusmods.com/survivallog/mods/12]BepInEx for Survival Log[/url] (BepInEx 6.0.0-be.788, IL2CPP). Install it first.[/*]
-[*][url=https://www.nexusmods.com/survivallog/mods/61]Exiled's Toolkit[/url] 0.19.0 or newer. Exact Numbers does not load without it. It finds the game's menus and tooltips for the mod, carries the numbers between the mod and the game's screens, and makes a change to ApplyModifiers on the Mod Manager's Mods screen take effect without a restart.[/*]
+[*][url=https://www.nexusmods.com/survivallog/mods/61]Exiled's Toolkit[/url] 0.19.0 or newer. Exact Numbers does not load without it. The Toolkit finds the game's menus and tooltips, passes the numbers to the game's screens, and lets a change to ApplyModifiers on the Mod Manager's Mods screen take effect without a restart.[/*]
 [*]Optional: [url=https://www.nexusmods.com/survivallog/mods/73]Mod Manager[/url]. With it, you can change every setting in game on its Mods screen and see what each one does, without opening the config file.[/*]
 [/list]
 
@@ -66,11 +66,11 @@ Max chips already show their number and are left alone. With the Action Speed mo
 Delete [font=Courier New]ExactNumbers.dll[/font] from the [font=Courier New]BepInEx\plugins[/font] folder. The measurements are in [font=Courier New]BepInEx\exact-numbers-measured.json[/font] if you want them gone too.
 
 [size=5]Configuration[/size]
-To turn the mod, the modifier scaling, measuring or the detailed log off, edit [font=Courier New]BepInEx\config\com.dev.survivallog.exactnumbers.cfg[/font] while the game is closed, or do it in game on the Mod Manager's Mods screen (see [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers/blob/main/CONFIG.md]CONFIG.md[/url] for every setting). ApplyModifiers changed there takes effect at once; Enabled, Measure and TraceLog take effect at the next game start.
+To turn the mod, the modifier scaling, measuring or the detailed log off, edit [font=Courier New]BepInEx\config\com.dev.survivallog.exactnumbers.cfg[/font] while the game is closed, or do it in game on the Mod Manager's Mods screen (see [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers/blob/main/CONFIG.md]CONFIG.md[/url] for every setting). A change to ApplyModifiers there takes effect at once. Enabled, Measure and TraceLog take effect at the next game start.
 
 [size=5]Feedback[/size]
-Found a bug or have an idea? Come say hi on the [url=https://discord.gg/trTsyxUFqg]Core Directive Discord[/url], or post in this page's Posts tab. For bugs, please include [font=Courier New]BepInEx\LogOutput.log[/font] and [font=Courier New]BepInEx\exact-numbers.log[/font]. The second one records every stat change of your character (kept under about 10 MB), which is what lets a wrong number be traced back.
-To reach me directly, message [b]exiled.dev[/b] on Discord; you can find me in the [url=https://discord.gg/MZGg4gQAUe]official Survival Log Discord[/url]. I'm also on X as [url=https://x.com/AnExiledDev]@AnExiledDev[/url].
+Found a bug or have an idea? Come say hi on the [url=https://discord.gg/trTsyxUFqg]Core Directive Discord[/url], or post in this page's Posts tab. For bugs, please include [font=Courier New]BepInEx\LogOutput.log[/font] and [font=Courier New]BepInEx\exact-numbers.log[/font]. The second one records every stat change of your character, so a wrong number can be traced back. It stays under about 10 MB.
+To reach me directly, message [b]exiled.dev[/b] on Discord. You can find me in the [url=https://discord.gg/MZGg4gQAUe]official Survival Log Discord[/url]. I'm also on X as [url=https://x.com/AnExiledDev]@AnExiledDev[/url].
 
 [size=5]Source and license[/size]
 Open source under MIT: [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers]github.com/AnExiledDev/SurvivalLog-ExactNumbers[/url]
@@ -78,13 +78,13 @@ Open source under MIT: [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumb
 [line]
 [size=5]简体中文[/size]
 
-把鼠标悬停在物件的动作上时，Survival Log 会显示这个动作对饱腹、心态、精力和生命的影响，但只用一到三个 + 或 - 符号表示。Exact Numbers 会把每个符号换成具体数字。一开始显示的是游戏自己的预估值，前面带 ~。你用过一次这个动作后，显示的就是角色实际得到的数值。它只改变提示里写的内容，不会改变你的角色、世界或存档。
+把鼠标悬停在物件的动作上时，Survival Log 会显示这个动作对饱腹、心态、精力和生命的影响，但只用一到三个 + 或 - 符号表示。Exact Numbers 会把每个符号换成具体数字。一开始显示的是游戏的预估值，前面带 ~。你用过一次这个动作后，显示的就是角色实际得到的数值。它只改变提示里写的内容，不会改变你的角色、世界或存档。
 
 [size=5]主要功能[/size]
 [list]
 [*][b]数字代替符号[/b]：物件交互菜单的提示和工作台产物提示里的每个 + 或 - 标签都会显示数字。[/*]
 [*][b]实测数字[/b]：每次用完一个物件，模组都会记下这个动作实际带来的变化，之后就显示这个数字，不再带 ~。[/*]
-[*][b]计入角色倍率[/b]：游戏会按角色自身的倍率换算每次饱腹、心态、精力和生命的变化。数字默认已计入这个倍率。倍率改变了数字时，标签的悬停提示里还会写出换算前的数字。可以在配置中关闭。[/*]
+[*][b]计入角色倍率[/b]：游戏会按角色的特质、增益和状态换算每次饱腹、心态、精力和生命的变化。数字默认已计入这个倍率。倍率改变了数字时，标签的悬停提示里还会写出换算前的数字。可以在配置中关闭。[/*]
 [*][b]安全回退[/b]：只要有任何地方和模组预想的不一样，提示就保持游戏原样，或继续显示游戏的预估值。[/*]
 [/list]
 没有快捷键。Exact Numbers 不会往存档里添加任何内容，也不会修改游戏文件，随时可以移除。
@@ -94,7 +94,7 @@ Open source under MIT: [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumb
 [size=5]实测值与预估值[/size]
 前面带 ~ 的数字是游戏的预估值，不带 ~ 的是实测值。
 
-预估值来自游戏数据里的一行简短预览，例如 Satiety:-12;Stamina:-20，游戏会把它换成符号。这行预览是为提示写的概要，并不是游戏实际施加的数值：有些消耗会随时间逐步扣除，有些数值是随机的，有些增益会把属性补到一定数值，每项属性都不会低于零或超过上限，食物种类、难度、状态和增益也会改变实际数值。
+预估值来自游戏数据里的一行简短预览，例如 Satiety:-12;Stamina:-20，游戏会把它换成符号。这行预览只是为提示写的概要，角色实际得到的数值可能不同：有些消耗会随时间逐步扣除，有些数值是随机的，有些增益会把属性补到一定数值，每项属性都不会低于零或超过上限，食物种类、难度、状态和增益也会改变实际数值。
 
 实测值是这个动作实际给角色带来的变化，每次使用结束时记录：
 [list]
@@ -103,11 +103,11 @@ Open source under MIT: [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumb
 [*][b]+4/小时[/b]：一直进行到你主动停止的动作，显示游戏内每小时的变化。[/*]
 [*][b]~+20[/b]：还没有实测过。[/*]
 [/list]
-标签的悬停提示会说明是哪一种：「根据 3 次使用实测」，或者是游戏的预估值。自然变化、中途打断的使用，以及属性到达零或上限的那次使用都不计入。会把属性补到一定数值的动作继续显示 ~ 预估值，因为没有哪个固定数字是对的。每个动作只在它自己的物件上实测，实测值会按角色当前的倍率换算。
+标签的悬停提示会说明是哪一种，例如「根据 3 次使用实测」或「~ 表示这是游戏的预估值」。自然变化（例如随时间恢复）、中途打断的使用，以及属性到达零或上限的那次使用都不计入。会把属性补到一定数值的动作继续显示 ~ 预估值，因为没有哪个固定数字是对的。每个动作只在它自己的物件上实测，实测值会按角色当前的倍率换算。
 
-数字会随着游戏进程逐步学到：一个动作在你完整做完一次之前都显示预估值。会自己结束的长动作显示的是每次使用的总量，而不是每小时的数值。实测记录按游戏版本保存在 BepInEx\exact-numbers-measured.json 中。删除这个文件即可重新开始实测；如果只想看预估值，可以在配置中关闭 Measure。
+数字会在游玩中逐步补全。一个动作在你完整做完一次之前都显示预估值。会自己结束的长动作显示的是每次使用的总量，而不是每小时的数值。实测记录按游戏版本保存在 BepInEx\exact-numbers-measured.json 中。删除这个文件即可重新开始实测。如果只想看预估值，可以在配置中关闭 Measure。
 
-上限标签本来就显示数字，模组不会改动它们。和 Action Speed 模组一起使用时，~ 预估值不会按改变后的动作时长换算；实测值就是角色实际得到的数值。
+上限标签本来就显示数字，模组不会改动它们。和 Action Speed 模组一起使用时，~ 预估值不会按改变后的动作时长换算，但实测值就是角色实际得到的数值。
 
 [size=5]已知问题[/size]
 [list]
@@ -139,10 +139,10 @@ Open source under MIT: [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumb
 从 [font=Courier New]BepInEx\plugins[/font] 文件夹中删除 [font=Courier New]ExactNumbers.dll[/font]。如果也想清除实测记录，它们保存在 [font=Courier New]BepInEx\exact-numbers-measured.json[/font]。
 
 [size=5]配置[/size]
-如需关闭模组、倍率换算、实测或详细日志，可以在游戏内 Mod Manager 的「模组」界面修改，也可以在游戏关闭时编辑 [font=Courier New]BepInEx\config\com.dev.survivallog.exactnumbers.cfg[/font]。配置文件中每项设置都有中文说明，完整说明见 [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers/blob/main/CONFIG.md]CONFIG.md[/url]（英文）。在「模组」界面修改的 ApplyModifiers 立即生效；Enabled、Measure 和 TraceLog 在下次启动游戏时生效。
+如需关闭模组、倍率换算、实测或详细日志，可以在游戏内 Mod Manager 的「模组」界面修改，也可以在游戏关闭时编辑 [font=Courier New]BepInEx\config\com.dev.survivallog.exactnumbers.cfg[/font]。配置文件中每项设置都有中文说明，完整说明见 [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumbers/blob/main/CONFIG.md]CONFIG.md[/url]（英文）。在「模组」界面修改的 ApplyModifiers 立即生效。Enabled、Measure 和 TraceLog 在下次启动游戏时生效。
 
 [size=5]反馈[/size]
-发现 bug 或有好点子？欢迎来 [url=https://discord.gg/trTsyxUFqg]Core Directive Discord[/url] 打个招呼，或在本页的「Posts」标签里发帖。报告 bug 时，请附上 [font=Courier New]BepInEx\LogOutput.log[/font] 和 [font=Courier New]BepInEx\exact-numbers.log[/font]。后者记录了角色的每次属性变化（保持在约 10 MB 以内），有了它才能追查出错误数字的来源。
+发现 bug 或有好点子？欢迎来 [url=https://discord.gg/trTsyxUFqg]Core Directive Discord[/url] 打个招呼，或在本页的「Posts」标签里发帖。报告 bug 时，请附上 [font=Courier New]BepInEx\LogOutput.log[/font] 和 [font=Courier New]BepInEx\exact-numbers.log[/font]。后者记录了角色的每次属性变化，有了它才能追查错误数字的来源。这个文件保持在约 10 MB 以内。
 想直接联系我，可以在 Discord 上给 [b]exiled.dev[/b] 发消息，我在 [url=https://discord.gg/MZGg4gQAUe]Survival Log 官方 Discord[/url] 里。也可以在 X 上找我：[url=https://x.com/AnExiledDev]@AnExiledDev[/url]。
 
 [size=5]源代码与许可[/size]

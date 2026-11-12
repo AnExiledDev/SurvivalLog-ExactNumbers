@@ -39,7 +39,7 @@
   <!-- What the Mod Manager's Mods screen shows about this mod. -->
   <ItemGroup>
     <AssemblyMetadata Include="ModManager.Name" Value="Exact Numbers&#10;精确数值" />
-    <AssemblyMetadata Include="ModManager.Description" Value="See the numbers behind the + and - marks in Survival Log's action tooltips: -10 satiety instead of two minus signs. Measured from what your character really got once you have used an action, the game's ~estimate until then.&#10;把动作提示里的 + 和 - 符号换成具体数字，用过一次后显示角色实际得到的数值。" />
+    <AssemblyMetadata Include="ModManager.Description" Value="Shows numbers instead of the + and - marks in action tooltips, like -10 satiety instead of two minus signs. Once you have used an action, the number is what your character really got. Until then it is the game's estimate, marked with ~.&#10;把动作提示里的 + 和 - 符号换成具体数字。用过一次动作后，显示的是角色实际得到的数值，在那之前显示游戏的预估值，前面带 ~。" />
     <AssemblyMetadata Include="ModManager.Author" Value="AnExiledDev" />
     <AssemblyMetadata Include="ModManager.Category" Value="Interface" />
     <AssemblyMetadata Include="ModManager.GameVersion" Value="1.1.20719" />

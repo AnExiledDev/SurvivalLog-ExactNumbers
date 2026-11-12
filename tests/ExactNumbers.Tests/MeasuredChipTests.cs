@@ -19,7 +19,7 @@ public class MeasuredChipTests
     {
         var label = Label("Stamina:+20", Store(Sample(18), Sample(18)));
 
-        Assert.Equal(new ChipLabel(ChipKind.Gain, "++", "+18", "measured over 2 uses, total per use"), label);
+        Assert.Equal(new ChipLabel(ChipKind.Gain, "++", "+18", "Measured over 2 uses, shown as the total for one use."), label);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public class MeasuredChipTests
         var label = Label("Stamina:+20", Store(Sample(4, isRate: true)));
 
         Assert.Equal("+4" + Texts.PerHourSuffix.En, label.Shown);
-        Assert.Equal("measured over 1 use, per in-game hour", label.Title);
+        Assert.Equal("Measured over 1 use, shown per in-game hour.", label.Title);
     }
 
     /// <summary>Measurements are stored before the character's ratio, so a changed ratio changes the number shown.</summary>
@@ -70,7 +70,7 @@ public class MeasuredChipTests
         var label = Label("Stamina:+20", Store(Sample(18)), modifiers);
 
         Assert.Equal("+27", label.Shown);
-        Assert.Equal("measured over 1 use, total per use; +18 before your modifiers", label.Title);
+        Assert.Equal("Measured over 1 use, shown as the total for one use. Before your modifiers, it is +18.", label.Title);
     }
 
     /// <summary>A function that tops a stat up has no single right number; an exact-looking wrong one is worse than the estimate.</summary>
@@ -122,7 +122,7 @@ public class MeasuredChipTests
         var label = ChipLabels.For("Stamina:+20", modifiers, Bed, Store(Sample(16, reach: 70), Sample(12, reach: 40)), isChinese: true)!.Last();
 
         Assert.Equal("+18 至 +24", label.Shown);
-        Assert.Equal("根据 2 次使用实测，为每次使用的总量；计入角色倍率前为 +12 至 +16", label.Title);
+        Assert.Equal("根据 2 次使用实测，为每次使用的总量。计入角色倍率前为 +12 至 +16。", label.Title);
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public class MeasuredChipTests
         var label = ChipLabels.For("Stamina:+20", Modifiers.None, Bed, Store(Sample(4, isRate: true)), isChinese: true)!.Last();
 
         Assert.Equal("+4/小时", label.Shown);
-        Assert.Equal("根据 1 次使用实测，按游戏内每小时计算", label.Title);
+        Assert.Equal("根据 1 次使用实测，按游戏内每小时计算。", label.Title);
     }
 
     [Fact]

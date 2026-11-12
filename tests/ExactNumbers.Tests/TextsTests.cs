@@ -59,7 +59,7 @@ public class TextsTests
     [Fact]
     public void A_number_slot_is_filled_in_either_language()
     {
-        Assert.Equal("measured over 3 uses", Texts.MeasuredOverUses.Pick(false, "3"));
+        Assert.Equal("Measured over 3 uses", Texts.MeasuredOverUses.Pick(false, "3"));
         Assert.Equal("根据 3 次使用实测", Texts.MeasuredOverUses.Pick(true, "3"));
     }
 
