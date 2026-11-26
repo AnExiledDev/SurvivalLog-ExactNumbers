@@ -23,8 +23,9 @@ namespace ExactNumbers.Adapters;
 /// effect that fills a stat up to a limit (AE_AddCostAttr_Float.Run) is hooked to mark its change as fill-to. Crafting
 /// recipes get their function from Reducer_Web_ToolTable.FillFurnitureBrief (Reducer_Web_ToolTable.c:4198). Only
 /// reads; every hook checks the character first so other agents cost one compare, and a stat change that cannot count
-/// is dropped before anything is looked up, unless the trace is on. Any failure is logged once and the hooks go
-/// dormant: a stat change must never break because of this mod. Static because Harmony patches are.
+/// is dropped before anything is looked up, unless the trace is on. The stat hooks stay in once applied; while measuring
+/// is off they find no measurer and return at once. Any failure is logged once and the hooks go dormant: a stat change
+/// must never break because of this mod. Static because Harmony patches are.
 /// </summary>
 internal static class MeasureHooks
 {
@@ -41,8 +42,7 @@ internal static class MeasureHooks
     private static Measurer? _measurer;
     private static RecipeSites? _recipes;
     private static Action<string> _log = _ => { };
-    private static Action<string> _trace = _ => { };
-    private static bool _isTracing;
+    private static TraceSwitch? _traceSwitch;
     private static long _heroId = -1;
     private static int _isDormant;
     private static int _isBriefDormant;
@@ -87,16 +87,32 @@ internal static class MeasureHooks
     /// <summary>The player's character, set once a frame by the session; -1 while there is none.</summary>
     public static void SetHero(long id) => Interlocked.Exchange(ref _heroId, id);
 
-    /// <param name="trace">Where trace lines go; null when the trace is off.</param>
-    /// <returns>False when the stat hooks could not all be applied; nothing is measured then.</returns>
-    public static bool Apply(PatchKit hooks, Measurer measurer, RecipeSites recipes, Action<string> log, Action<string>? trace)
+    /// <summary>
+    /// The crafting hooks, at the game start whatever the settings say: the game builds a recipe's furniture brief once
+    /// and keeps it for the session (Reducer_Web_ToolTable.GetOrBuildRecipeStatic), so hooks applied later would miss
+    /// every recipe already seen.
+    /// </summary>
+    public static void ApplyBriefs(PatchKit hooks, RecipeSites recipes, Action<string> log, TraceSwitch trace)
     {
-        _measurer = measurer;
         _recipes = recipes;
         _log = log;
-        _trace = trace ?? (_ => { });
-        _isTracing = trace != null;
+        _traceSwitch = trace;
 
+        hooks.Patch(typeof(MeasureHooks), typeof(Reducer_Web_ToolTable), nameof(Reducer_Web_ToolTable.FillFurnitureBrief), postfix: nameof(AfterBrief),
+            consequence: "crafting chips keep the game's estimates");
+
+        // Builds that fill the brief on a blank row name it in GetOrBuildRecipeStatic; older builds have no such method.
+        if (AccessTools.Method(typeof(Reducer_Web_ToolTable), "GetOrBuildRecipeStatic") != null)
+        {
+            hooks.Patch(typeof(MeasureHooks), typeof(Reducer_Web_ToolTable), "GetOrBuildRecipeStatic", prefix: nameof(BeforeStatic), postfix: nameof(AfterStatic),
+                consequence: "furniture recipes keep the game's estimates");
+        }
+    }
+
+    /// <summary>The stat hooks, the first time measuring is turned on; they feed whatever <see cref="Use"/> set.</summary>
+    /// <returns>False when they could not all be applied; nothing is measured then.</returns>
+    public static bool ApplyStats(PatchKit hooks)
+    {
         try
         {
             hooks.PatchOrThrow(typeof(MeasureHooks), typeof(AttributeComponent), nameof(AttributeComponent.CostAttrValue),
@@ -109,30 +125,37 @@ internal static class MeasureHooks
             hooks.PatchOrThrow(typeof(MeasureHooks), typeof(ActionComponent), nameof(ActionComponent.RemoveActionCall), prefix: nameof(BeforeRemove), postfix: nameof(AfterRemove));
             hooks.PatchOrThrow(typeof(MeasureHooks), typeof(ActionManager), nameof(ActionManager.TryExecuteFurnitureFuncReward), prefix: nameof(BeforeReward), postfix: nameof(AfterReward));
             hooks.PatchOrThrow(typeof(MeasureHooks), typeof(AE_AddCostAttr_Float), nameof(AE_AddCostAttr_Float.Run), prefix: nameof(BeforeFill), postfix: nameof(AfterFill));
-            log("measuring furniture functions");
+            _log("measuring furniture functions");
         }
         catch (Exception ex)
         {
             Interlocked.Exchange(ref _isDormant, 1);
-            log("could not hook stat changes, nothing is measured and the game's estimates are shown: " + ex.Message);
+            _log("could not hook stat changes, nothing is measured and the game's estimates are shown: " + ex.Message);
 
             return false;
-        }
-
-        hooks.Patch(typeof(MeasureHooks), typeof(Reducer_Web_ToolTable), nameof(Reducer_Web_ToolTable.FillFurnitureBrief), postfix: nameof(AfterBrief),
-            consequence: "crafting chips keep the game's estimates");
-
-        // Builds that fill the brief on a blank row name it in GetOrBuildRecipeStatic; older builds have no such method.
-        if (AccessTools.Method(typeof(Reducer_Web_ToolTable), "GetOrBuildRecipeStatic") != null)
-        {
-            hooks.Patch(typeof(MeasureHooks), typeof(Reducer_Web_ToolTable), "GetOrBuildRecipeStatic", prefix: nameof(BeforeStatic), postfix: nameof(AfterStatic),
-                consequence: "furniture recipes keep the game's estimates");
         }
 
         return true;
     }
 
+    /// <summary>
+    /// What the stat hooks feed from now on; null stops measuring. Under the gate, on the main thread. Calls still open
+    /// belong to the measurer before, so they are dropped.
+    /// </summary>
+    public static void Use(Measurer? measurer)
+    {
+        Volatile.Write(ref _measurer, measurer);
+        Frames.Clear();
+        Interlocked.Exchange(ref _isRewardOpen, 0);
+    }
+
     private static bool IsDormant => Volatile.Read(ref _isDormant) != 0;
+
+    private static bool IsMeasuring => Volatile.Read(ref _measurer) != null;
+
+    private static bool IsTracing => _traceSwitch?.IsOn == true;
+
+    private static void Trace(string line) => _traceSwitch?.Write(line);
 
     private static bool IsHero(long id) => id == Interlocked.Read(ref _heroId);
 
@@ -140,7 +163,7 @@ internal static class MeasureHooks
     {
         __state = null;
 
-        if (IsDormant) return;
+        if (IsDormant || !IsMeasuring) return;
 
         try
         {
@@ -185,12 +208,14 @@ internal static class MeasureHooks
         {
             lock (Gate) Frames.Remove(__state);
 
-            if (IsDormant || _measurer == null) return;
+            var measurer = Volatile.Read(ref _measurer);
+
+            if (IsDormant || measurer == null) return;
 
             var mayCount = MayCount(argsType, isDependency, sourceType);
 
             // Most changes of the character are its stats running down on their own; without a trace they end here.
-            if (!mayCount && !_isTracing) return;
+            if (!mayCount && !IsTracing) return;
 
             // Looked up only for a change that can count; a traced one that cannot shows max 0, action 0 and time -1.
             var action = mayCount ? CurrentAction() : null;
@@ -212,7 +237,7 @@ internal static class MeasureHooks
                 mayCount ? GameSeconds() : -1,
                 __state.IsFillTo);
 
-            lock (Gate) _measurer.Cost(call);
+            lock (Gate) measurer.Cost(call);
         }
         catch (Exception ex)
         {
@@ -252,7 +277,9 @@ internal static class MeasureHooks
     /// </summary>
     private static void BeforePlay(ActionComponent __instance, long targetId, Config_Action config)
     {
-        if (IsDormant || _measurer == null) return;
+        var measurer = Volatile.Read(ref _measurer);
+
+        if (IsDormant || measurer == null) return;
 
         try
         {
@@ -260,7 +287,7 @@ internal static class MeasureHooks
 
             var action = CurrentAction();
 
-            _trace($"play config={config.ID} during={config.During} current action={action?.ActionId ?? 0} matched func={action?.MatchedFuncId ?? 0} target={targetId}");
+            Trace($"play config={config.ID} during={config.During} current action={action?.ActionId ?? 0} matched func={action?.MatchedFuncId ?? 0} target={targetId}");
 
             // AgentAction.ParentId is the press: ActionManager.Update starts only queued actions of the current one
             // (ActionManager.c:10033).
@@ -269,7 +296,7 @@ internal static class MeasureHooks
             // A reward window never spans the start of an action; one left open by a reward that threw is shut here.
             Interlocked.Exchange(ref _isRewardOpen, 0);
 
-            lock (Gate) _measurer.Play(use);
+            lock (Gate) measurer.Play(use);
         }
         catch (Exception ex)
         {
@@ -282,7 +309,7 @@ internal static class MeasureHooks
     {
         __state = null;
 
-        if (IsDormant) return;
+        if (IsDormant || !IsMeasuring) return;
 
         try
         {
@@ -300,15 +327,17 @@ internal static class MeasureHooks
     /// </summary>
     private static void AfterRemove(long btArgsId, bool forceBroken, Removing? __state)
     {
-        if (__state == null || IsDormant || _measurer == null) return;
+        var measurer = Volatile.Read(ref _measurer);
+
+        if (__state == null || IsDormant || measurer == null) return;
 
         try
         {
             var pressGoesOn = !forceBroken && PressGoesOn(__state.Press);
 
-            _trace($"remove action={__state.ActionId} args={btArgsId} broken={forceBroken} press={__state.Press} press goes on={pressGoesOn}");
+            Trace($"remove action={__state.ActionId} args={btArgsId} broken={forceBroken} press={__state.Press} press goes on={pressGoesOn}");
 
-            lock (Gate) _measurer.End(__state.ActionId, forceBroken, GameSeconds(), pressGoesOn);
+            lock (Gate) measurer.End(__state.ActionId, forceBroken, GameSeconds(), pressGoesOn);
         }
         catch (Exception ex)
         {
@@ -328,7 +357,9 @@ internal static class MeasureHooks
     {
         __state = false;
 
-        if (IsDormant || _measurer == null) return;
+        var measurer = Volatile.Read(ref _measurer);
+
+        if (IsDormant || measurer == null) return;
 
         try
         {
@@ -336,7 +367,7 @@ internal static class MeasureHooks
 
             var site = new MeasureSite(FurnitureOf(action.TargetId), action.MatchedFuncId);
 
-            lock (Gate) _measurer.OpenReward(action.ActionId, site);
+            lock (Gate) measurer.OpenReward(action.ActionId, site);
 
             Interlocked.Exchange(ref _isRewardOpen, 1);
             __state = true;
@@ -353,11 +384,13 @@ internal static class MeasureHooks
 
         Interlocked.Exchange(ref _isRewardOpen, 0);
 
-        if (IsDormant || _measurer == null) return;
+        var measurer = Volatile.Read(ref _measurer);
+
+        if (IsDormant || measurer == null) return;
 
         try
         {
-            lock (Gate) _measurer.CloseReward();
+            lock (Gate) measurer.CloseReward();
         }
         catch (Exception ex)
         {
@@ -373,7 +406,7 @@ internal static class MeasureHooks
     /// </summary>
     private static void BeforeFill(AE_AddCostAttr_Float __instance)
     {
-        if (IsDormant) return;
+        if (IsDormant || !IsMeasuring) return;
 
         try
         {
@@ -452,11 +485,11 @@ internal static class MeasureHooks
             else _recipes.Forget(recipeKey);
         }
 
-        if (!_isTracing) return;
+        if (!IsTracing) return;
 
         var outcome = isMapped ? "mapped" : chosen == null ? "none" : "mismatch, game shows " + preview;
 
-        _trace($"recipe key={recipeKey} item={productConfig?.ID ?? 0} furniture={furnitureId} slot={choice.SlotType} func={chosen?.Id ?? 0} preview={chosen?.Preview ?? ""} -> {outcome}");
+        Trace($"recipe key={recipeKey} item={productConfig?.ID ?? 0} furniture={furnitureId} slot={choice.SlotType} func={chosen?.Id ?? 0} preview={chosen?.Preview ?? ""} -> {outcome}");
     }
 
     /// <summary>Read once per furniture and kept while the game's furniture table stays the same object.</summary>

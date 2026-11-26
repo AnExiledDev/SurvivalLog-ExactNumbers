@@ -15,7 +15,7 @@ public sealed class LabelBook
     public const int MaxRemembered = 512;
 
     private readonly HashSet<string> _sent = new(StringComparer.Ordinal);
-    private readonly MeasureStore? _measured;
+    private MeasureStore? _measured;
     private Modifiers _modifiers = Modifiers.None;
     private bool _isChinese;
 
@@ -69,6 +69,17 @@ public sealed class LabelBook
         if (isChinese == _isChinese) return null;
 
         _isChinese = isChinese;
+
+        return ResendAll();
+    }
+
+    /// <summary>Measured numbers come from this store from now on; null shows only the game's estimates.</summary>
+    /// <returns>The payload to resend when the store changed and the page holds numbers; otherwise null.</returns>
+    public string? UseMeasured(MeasureStore? measured)
+    {
+        if (ReferenceEquals(measured, _measured)) return null;
+
+        _measured = measured;
 
         return ResendAll();
     }

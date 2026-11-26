@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.8
+
+- `Enabled`, `Measure` and `TraceLog` now take effect as soon as you change them on the Mods screen. Turning `Enabled` off puts the + and - marks back on any tooltip that is open.
+- A measurements file that can't be read right now is left alone, and nothing is saved over it that session. A damaged file gets a date in its new name, so an older one is never replaced.
+- Made for Survival Log 1.1.21671.
+
 ## 0.3.7
 
 - The `Enabled`, `Measure` and `TraceLog` settings now say why they wait for the next game start.

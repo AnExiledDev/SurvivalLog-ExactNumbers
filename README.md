@@ -43,7 +43,7 @@ Measurements are saved without your character's modifiers and scaled by the modi
 
 The numbers fill in as you play. An action shows the estimate until you have finished it once, and a range can widen as you use it more. Long actions that end on their own show the total for the whole use instead of a number per hour. If you want the estimates only, turn `Measure` off.
 
-The measurements are saved in `BepInEx\exact-numbers-measured.json` and loaded the next time you start the game. They are kept per game version, because a game update can change what an action does. Delete the file to start measuring from scratch. If the file is damaged, the mod renames it to `exact-numbers-measured.json.bad`, says so in the log, and starts fresh. If it cannot rename it, nothing is saved until you restart the game, so the old file is never overwritten.
+The measurements are saved in `BepInEx\exact-numbers-measured.json` and loaded the next time you start the game. They are kept per game version, because a game update can change what an action does. Delete the file to start measuring from scratch. If the file is damaged, the mod renames it to `exact-numbers-measured.json.<date and time>.bad`, says so in the log, and starts fresh. If the file can't be read at all, for example because another program has it open, the mod leaves it alone and saves nothing until you restart the game, so the old file is never overwritten.
 
 A few more things to know:
 
@@ -78,13 +78,13 @@ Delete `ExactNumbers.dll` from the `BepInEx\plugins` folder. For a clean slate, 
 
 ## Configuration
 
-Settings live in `BepInEx\config\com.dev.survivallog.exactnumbers.cfg`, created the first time the game starts with the mod. Change them in game on the Mod Manager's Mods screen, or edit the file while the game is closed. A change to ApplyModifiers on the Mods screen takes effect at once. Enabled, Measure and TraceLog take effect at the next game start. See [CONFIG.md](CONFIG.md) for every setting.
+Settings live in `BepInEx\config\com.dev.survivallog.exactnumbers.cfg`, created the first time the game starts with the mod. Change them in game on the Mod Manager's Mods screen, or edit the file while the game is closed. A change on the Mods screen takes effect at once. See [CONFIG.md](CONFIG.md) for every setting.
 
 ## Troubleshooting
 
 Built against BepInEx `6.0.0-be.788`.
 
-Check `BepInEx\LogOutput.log` for a line starting `===== Exact Numbers`, followed by the mod's version and `started`. It says whether the mod is on, whether modifiers are applied, and whether measuring and the trace log are on. After it you should see `measurements loaded for game version` (or `no measurements file yet` on the first start) and `measuring furniture functions`, then `listening for page script messages`, then `page script ready` once the game's UI is up, and `modifiers now:` with your character's ratios once a world loads.
+Check `BepInEx\LogOutput.log` for a line starting `===== Exact Numbers`, followed by the mod's version and `started`. It says whether the mod is on, whether modifiers are applied, and whether measuring and the trace log are on. After it you should see `measuring furniture functions`, then `measurements loaded for game version` (or `no measurements file yet` on the first start), then a line saying what is on (`enabled`, `measuring`, `trace log`), then `listening for page script messages`, then `page script ready` once the game's UI is up, and `modifiers now:` with your character's ratios once a world loads.
 
 The same lines are in `BepInEx\exact-numbers.log`, which survives restarts. With `TraceLog` on (the default), that file also gets a line for every stat change of your character, every use the mod measured, and what it read for each menu button. Those lines are written in a batch every few seconds. It is kept under about 10 MB: past that, it is moved to `exact-numbers.log.1` and started again.
 

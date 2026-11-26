@@ -31,4 +31,17 @@ public class CadenceTests
 
         Assert.True(cadence.IsDue(2f));
     }
+
+    /// <summary>At 200 days a float clock moves in steps of 2 seconds, so a quarter second looks like no time at all.</summary>
+    [Fact]
+    public void A_short_interval_still_works_on_a_clock_far_from_zero()
+    {
+        const double later = 200 * 24 * 3600;
+        var cadence = new Cadence(0.25);
+
+        cadence.Ran(later);
+
+        Assert.False(cadence.IsDue(later + 0.125));
+        Assert.True(cadence.IsDue(later + 0.25));
+    }
 }

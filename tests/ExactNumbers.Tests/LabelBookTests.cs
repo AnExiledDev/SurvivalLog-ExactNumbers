@@ -231,6 +231,35 @@ public class LabelBookTests
         Assert.Contains("\"s\":\"" + Minus + "10\"", new LabelBook(store).Answer("@500/7/Satiety:-12"));
     }
 
+    /// <summary>Measuring turned off: the chips that showed a measured number go back to the estimate.</summary>
+    [Fact]
+    public void Dropping_the_measurements_resends_the_estimates()
+    {
+        var store = new MeasureStore();
+
+        store.Add(BedSatiety(-10));
+
+        var book = new LabelBook(store);
+
+        book.Answer("@500/7/Satiety:-12");
+
+        var resend = book.UseMeasured(null);
+
+        Assert.NotNull(resend);
+        Assert.Contains("\"@500/7/Satiety:-12\":[{\"k\":\"cost\",\"v\":\"" + Minus + Minus + "\",\"s\":\"~" + Minus + "12\"", resend);
+    }
+
+    [Fact]
+    public void Using_the_same_measurements_again_resends_nothing()
+    {
+        var store = new MeasureStore();
+        var book = new LabelBook(store);
+
+        book.Answer("@500/7/Satiety:-12");
+
+        Assert.Null(book.UseMeasured(store));
+    }
+
     /// <summary>A new measurement changes only that function's chips; the page keeps every other number it holds.</summary>
     [Fact]
     public void A_new_measurement_resends_only_the_keys_of_its_furniture_function()

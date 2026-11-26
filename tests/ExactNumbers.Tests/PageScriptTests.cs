@@ -233,6 +233,110 @@ public class PageScriptTests
         Assert.Empty(page.Notes);
     }
 
+    // ===== On and off =====
+
+    private const string FirstMenuChip = "document.getElementById('SelectMenu').contentDocument.getElementById('menu-container').querySelectorAll('.tip-attrs')[0].children[0]";
+
+    [Fact]
+    public void Turning_the_mod_off_puts_the_games_marks_back_on_an_open_menu()
+    {
+        var page = MenuInFlight("Satiety:-12", TwoCostMarks);
+
+        page.AnswerGameMessages();
+
+        Assert.Equal(Estimate(-12), page.MenuChip("SelectMenu", 0, 0));
+        Assert.NotEqual("", page.Text(FirstMenuChip + ".title"));
+
+        page.SetOn(false);
+
+        Assert.Equal(TwoCostMarks, page.MenuChip("SelectMenu", 0, 0));
+        Assert.Equal("", page.Text(FirstMenuChip + ".title"));
+        Assert.Equal("null", page.Text(FirstMenuChip + ".getAttribute('data-slexact-marks')"));
+        Assert.Empty(page.Notes);
+    }
+
+    [Fact]
+    public void Nothing_is_passed_on_or_asked_for_while_the_mod_is_off()
+    {
+        var page = new PageScript();
+
+        page.SetOn(false);
+        page.GameSends("SelectMenu", GameMessage.MenuMessage, ButtonList("Satiety:-12"));
+        page.OpenMenu("SelectMenu", Button(Cost(TwoCostMarks)));
+        page.OpenToolTable("{'Satiety:-12':[" + Cost(TwoCostMarks) + "]}");
+        page.Poll();
+        page.HoverRecipe("Satiety:-12");
+
+        Assert.Empty(page.PassedOn);
+        Assert.Empty(page.Needs);
+        Assert.Equal(TwoCostMarks, page.MenuChip("SelectMenu", 0, 0));
+        Assert.Equal(TwoCostMarks, page.RecipeChip(0, 0));
+    }
+
+    /// <summary>The plugin can have answered before it turned the mod off; that answer must not put numbers back.</summary>
+    [Fact]
+    public void An_answer_that_arrives_after_the_mod_is_off_changes_nothing()
+    {
+        var page = MenuInFlight("Satiety:-12", TwoCostMarks);
+
+        page.SetOn(false);
+        page.AnswerGameMessages();
+        page.SendLabels("Satiety:-12");
+        page.RedrawMenu("SelectMenu", Button(Cost(TwoCostMarks)));
+        page.Frame();
+
+        Assert.Equal(TwoCostMarks, page.MenuChip("SelectMenu", 0, 0));
+    }
+
+    [Fact]
+    public void Turned_on_again_the_next_open_gets_its_numbers()
+    {
+        var page = MenuInFlight("Satiety:-12", TwoCostMarks);
+
+        page.SetOn(false);
+        page.DropGameMessages();
+        page.SetOn(true);
+        page.GameSends("SelectMenu", GameMessage.MenuMessage, ButtonList("Satiety:-12"));
+        page.OpenMenu("SelectMenu", Button(Cost(TwoCostMarks)));
+        page.Poll();
+        page.AnswerGameMessages();
+
+        Assert.Equal(Estimate(-12), page.MenuChip("SelectMenu", 0, 0));
+    }
+
+    /// <summary>The page measures and places the tooltip as it builds it, and the marks are narrower than the numbers.</summary>
+    [Fact]
+    public void Turning_the_mod_off_builds_a_shown_recipe_tooltip_again_with_the_marks()
+    {
+        var page = ToolTable("{'Satiety:-12':[" + Cost(TwoCostMarks) + "]}");
+
+        page.HoverRecipe("Satiety:-12");
+        page.AnswerNeeds();
+
+        Assert.Equal(2, page.RecipeBuilds);
+
+        page.SetOn(false);
+
+        Assert.Equal(3, page.RecipeBuilds);
+        Assert.Equal(TwoCostMarks, page.RecipeChip(0, 0));
+        Assert.Empty(page.Notes);
+    }
+
+    [Fact]
+    public void Only_a_change_to_on_says_ready_again()
+    {
+        var page = new PageScript();
+
+        page.SetOn(true);
+
+        Assert.Equal(1, page.ReadyCount);
+
+        page.SetOn(false);
+        page.SetOn(true);
+
+        Assert.Equal(2, page.ReadyCount);
+    }
+
     // ===== What is passed on =====
 
     [Fact]

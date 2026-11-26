@@ -14,6 +14,7 @@
   <!-- The pure core is compiled straight in, with the Toolkit's plain helper it uses, so the tests need none of the game or BepInEx assemblies. -->
   <ItemGroup>
     <Compile Include="..\..\src\ExactNumbers\Core\*.cs" Link="Core\%(Filename)%(Extension)" />
+    <Compile Include="..\..\src\ExactNumbers\Adapters\MeasuredFile.cs" Link="Adapters\MeasuredFile.cs" />
     <Compile Include="$(ToolkitSrc)\Core\JsText.cs" Link="Toolkit\JsText.cs" />
   </ItemGroup>
 

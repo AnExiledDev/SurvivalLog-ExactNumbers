@@ -49,7 +49,10 @@ internal sealed class PageScript
     public List<string> PassedOn { get; } = new();
 
     /// <summary>Whether the script told the plugin it is ready, as it does when it starts.</summary>
-    public bool HasSaidReady { get; private set; }
+    public bool HasSaidReady => ReadyCount > 0;
+
+    /// <summary>How many times the script said it is ready.</summary>
+    public int ReadyCount { get; private set; }
 
     /// <summary>Anything else the script said, such as its "diag|" notes when something threw.</summary>
     public List<string> Notes { get; } = new();
@@ -105,6 +108,12 @@ internal sealed class PageScript
     /// <summary>The label keys the script asked numbers for and has not been answered for yet.</summary>
     public IReadOnlyList<string> Needs => _needs.Select(need => need.Key).ToList();
 
+    /// <summary>The plugin's call when the Enabled setting changes.</summary>
+    public void SetOn(bool isOn) => Run("window.__slexactnumbers.setOn(" + (isOn ? "true" : "false") + ")");
+
+    /// <summary>Forgets the game messages passed on so far, as the plugin does while the mod is off.</summary>
+    public void DropGameMessages() => _games.Clear();
+
     /// <summary>Answers every game message passed on so far, in order, as the plugin does.</summary>
     public void AnswerGameMessages()
     {
@@ -151,7 +160,7 @@ internal sealed class PageScript
         switch (command)
         {
             case PageCommand.Ready:
-                HasSaidReady = true;
+                ReadyCount++;
                 _book.PageReloaded();
                 break;
             case PageCommand.Game game:

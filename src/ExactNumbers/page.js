@@ -13,7 +13,7 @@
   var PREFIX = 'slmod|exactnumbers|';
   var ASK_AGAIN_MS = 3000;
   var MARK = '__slexactnumbers';
-  var VANILLA_ATTR = 'data-slexact-vanilla';
+  var MARKS_ATTR = 'data-slexact-marks';
   var TITLE_ATTR = 'data-slexact-title';
   // The only game messages sent on to the plugin, which reads each in full. An object menu's button list says which
   // preview each button's chips are drawn from, so menus cannot be numbered without it. The crafting table's recipe list
@@ -44,6 +44,10 @@
   // the previous open's keys, so menus wait for the answer.
   var forwarded = 0;
   var answered = 0;
+  // False after the plugin turned the mod off: nothing is passed on, asked for or changed until it is turned on again.
+  var isOn = true;
+  // True while patchPages runs to put the game's marks back, so each page is restored in place of being patched.
+  var isRestoring = false;
 
   function send(message) {
     try {
@@ -76,6 +80,8 @@
   }
 
   function passOn(event) {
+    if (!isOn) return;
+
     var message = event && event.data;
 
     if (typeof message !== 'string' || !has(PASSED_ON, messageName(message))) return;
@@ -105,7 +111,7 @@
 
   function takeGame(data) {
     // A number above any sent belongs to a script from before a reload.
-    if (!data || typeof data.seq !== 'number' || data.seq > forwarded) return;
+    if (!isOn || !data || typeof data.seq !== 'number' || data.seq > forwarded) return;
     if (data.seq > answered) answered = data.seq;
 
     if (data.menu) {
@@ -126,6 +132,8 @@
   }
 
   function setLabels(data) {
+    if (!isOn) return;
+
     var updated = {};
 
     data = data || {};
@@ -166,6 +174,8 @@
 
   // wrap is the .tip-attrs element the game built from the preview in key. Every chip is checked before any is changed.
   function rewrite(wrap, key) {
+    if (!isOn) return SAME;
+
     var list = labelsFor(key);
 
     if (list === undefined) return PENDING;
@@ -189,7 +199,7 @@
 
     if (!value || !chip.classList.contains('attr-chip') || !chip.classList.contains(label.k)) return false;
 
-    var drawn = chip.getAttribute(VANILLA_ATTR);
+    var drawn = chip.getAttribute(MARKS_ATTR);
 
     return (drawn === null ? value.textContent : drawn) === label.v;
   }
@@ -199,7 +209,7 @@
     var value = chip.lastElementChild;
     var isChanged = value.textContent !== label.s;
 
-    if (chip.getAttribute(VANILLA_ATTR) === null) chip.setAttribute(VANILLA_ATTR, label.v);
+    if (chip.getAttribute(MARKS_ATTR) === null) chip.setAttribute(MARKS_ATTR, label.v);
     if (isChanged) value.textContent = label.s;
 
     if (label.t) {
@@ -436,16 +446,9 @@
   // Only the tooltip on screen is built again, and only once every number in it is known, so it is built once. The
   // page reuses the tooltip element for other hovers (showMaterialTooltip, 3624), so it must still hold these chips.
   function redrawTooltip(win, doc, state, updated) {
-    var shown = state.shown;
-    var tooltip = doc.getElementById('recipe-tooltip');
+    var shown = shownTooltip(doc, state);
 
-    if (!shown || !tooltip || tooltip.style.display !== 'block') return;
-
-    if (!shown.wraps.length || !tooltip.contains(shown.wraps[0])) {
-      state.shown = null;
-
-      return;
-    }
+    if (!shown) return;
 
     var isTouched = false;
 
@@ -454,14 +457,111 @@
       if (updated[shown.keys[i]]) isTouched = true;
     }
 
-    if (isTouched) win.showRecipeTooltip.apply(win, [{ clientX: state.x, clientY: state.y }].concat(shown.rest));
+    if (isTouched) buildTooltipAgain(win, state, shown);
+  }
+
+  // The recipe tooltip on screen, while it still holds the chips built for it; null otherwise.
+  function shownTooltip(doc, state) {
+    var shown = state.shown;
+    var tooltip = doc.getElementById('recipe-tooltip');
+
+    if (!shown || !tooltip || tooltip.style.display !== 'block') return null;
+
+    if (!shown.wraps.length || !tooltip.contains(shown.wraps[0])) {
+      state.shown = null;
+
+      return null;
+    }
+
+    return shown;
+  }
+
+  function buildTooltipAgain(win, state, shown) {
+    win.showRecipeTooltip.apply(win, [{ clientX: state.x, clientY: state.y }].concat(shown.rest));
+  }
+
+  // ===== On and off =====
+
+  // Called by the plugin when the Enabled setting changes. Off forgets every number and puts the game's marks back on
+  // every chip this script changed; on says ready, so the plugin answers again, and the next open is numbered.
+  function setOn(on) {
+    if (on === isOn) return;
+
+    isOn = on;
+
+    if (on) return send('ready');
+
+    labels = {};
+    askedAt = {};
+    menus = {};
+    recipeKeys = {};
+    isRestoring = true;
+
+    try {
+      patchPages(null);
+    } finally {
+      isRestoring = false;
+    }
+  }
+
+  // Puts back the text the game drew on every chip under root that this script changed, and its hover text.
+  function restoreChips(root) {
+    var chips = root.querySelectorAll('[' + MARKS_ATTR + ']');
+
+    for (var i = 0; i < chips.length; i++) {
+      var value = chips[i].lastElementChild;
+
+      if (value) value.textContent = chips[i].getAttribute(MARKS_ATTR);
+
+      chips[i].removeAttribute(MARKS_ATTR);
+
+      if (chips[i].getAttribute(TITLE_ATTR) !== null) {
+        chips[i].removeAttribute('title');
+        chips[i].removeAttribute(TITLE_ATTR);
+      }
+    }
+
+    return chips;
+  }
+
+  // The marks are narrower than the numbers, so each column's tooltip side is picked again.
+  function restoreSelectMenu(win, doc) {
+    var container = menuContainer(doc);
+
+    if (!container) return;
+
+    var chips = restoreChips(container);
+    var columns = [];
+
+    for (var i = 0; i < chips.length; i++) {
+      var column = chips[i].closest('.menu-col');
+
+      if (column && columns.indexOf(column) < 0) columns.push(column);
+    }
+
+    for (var c = 0; c < columns.length; c++) placeMenuTooltips(win, columns[c]);
+
+    if (container[MARK]) container[MARK].takeRecords();
+  }
+
+  // The tooltip on screen is built again, so the page measures and places it with the marks.
+  function restoreToolTable(win, doc) {
+    var state = win[MARK];
+
+    if (!state) return;
+
+    restoreChips(doc.body);
+
+    var shown = shownTooltip(doc, state);
+
+    if (shown) buildTooltipAgain(win, state, shown);
   }
 
   // ===== Pages =====
 
   var PAGES = [
-    { pattern: /SelectMenu\.html/, patch: patchSelectMenu },
-    { pattern: /ToolTable\.html/, patch: patchToolTable }
+    { pattern: /SelectMenu\.html/, patch: patchSelectMenu, restore: restoreSelectMenu },
+    { pattern: /ToolTable\.html/, patch: patchToolTable, restore: restoreToolTable }
   ];
 
   // One Toolkit page watch per entry of PAGES, once Exiled's Toolkit has loaded. Each asks at every check, which finds
@@ -500,7 +600,8 @@
     if (doc.readyState === 'loading') return false;
 
     try {
-      page.patch(win, doc, frame, updatedNow);
+      if (isOn) page.patch(win, doc, frame, updatedNow);
+      else if (isRestoring) page.restore(win, doc);
     } catch (e) {
       diag(String(page.pattern), e);
     }
@@ -512,7 +613,7 @@
     diag('game messages', e);
   }
 
-  window.__slexactnumbers = { setLabels: setLabels, takeGame: takeGame };
+  window.__slexactnumbers = { setLabels: setLabels, takeGame: takeGame, setOn: setOn };
   // At once, not in the Toolkit's ready queue: until the plugin hears this, it sends a reloaded page no new numbers.
   send('ready');
   (window.ExiledToolkitReady = window.ExiledToolkitReady || []).push(watchGamePages);

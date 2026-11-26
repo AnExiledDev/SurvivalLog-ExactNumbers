@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -9,9 +10,10 @@ namespace ExactNumbers.Adapters;
 
 /// <summary>
 /// BepInEx/exact-numbers-measured.json: the measurements, kept across sessions. Saved whole to a temporary file that
-/// then replaces the old one, so a crash mid-save leaves the last good file. A file that cannot be read is moved to
-/// exact-numbers-measured.json.bad and the mod starts with nothing measured; if it cannot be moved, nothing is saved
-/// this session, so the file is left as it was.
+/// then replaces the old one, so a crash mid-save leaves the last good file. A file that is not a measurements file is
+/// moved to a dated exact-numbers-measured.json.&lt;date&gt;.bad and the mod starts with nothing measured. A file that
+/// cannot be read right now (locked, or a folder in its place) is left as it is, and nothing is saved this session, so
+/// it is still there next time. The same goes for one that cannot be moved.
 /// </summary>
 internal sealed class MeasuredFile
 {
@@ -33,25 +35,59 @@ internal sealed class MeasuredFile
     /// <summary>Never throws: without a readable file the mod measures from scratch.</summary>
     public MeasureStore Load()
     {
+        var text = ReadText();
+
+        if (text == null) return new MeasureStore();
+
+        var load = Parse(text);
+
+        if (load == null) return SetAside("it is not a measurements file this version can read");
+
+        _others = load.Others;
+        _log($"measurements loaded for game version {_version}: {load.Store.Count} records, {load.Skipped} unreadable records skipped, {load.Others.Count} other game versions kept");
+
+        return load.Store;
+    }
+
+    /// <summary>Null when there is nothing to read, logged; a file too large to be one is set aside first.</summary>
+    private string? ReadText()
+    {
         try
         {
-            if (!File.Exists(_path)) return Fresh("no measurements file yet");
+            if (File.Exists(_path) && new FileInfo(_path).Length > MeasureFile.MaxBytes)
+            {
+                SetAside("it is larger than " + MeasureFile.MaxBytes + " bytes");
 
-            if (new FileInfo(_path).Length > MeasureFile.MaxBytes) return SetAside("it is larger than " + MeasureFile.MaxBytes + " bytes");
+                return null;
+            }
 
-            var load = MeasureFile.Read(File.ReadAllText(_path, Encoding.UTF8), _version);
+            return File.ReadAllText(_path, Encoding.UTF8);
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            Fresh("no measurements file yet");
 
-            if (load == null) return SetAside("it is not a measurements file this version can read");
-
-            _others = load.Others;
-            _log($"measurements loaded for game version {_version}: {load.Store.Count} records, {load.Skipped} unreadable records skipped, {load.Others.Count} other game versions kept");
-
-            return load.Store;
+            return null;
         }
         catch (Exception ex)
         {
-            // Set aside rather than left in place, so the next save cannot overwrite measurements that may still be there.
-            return SetAside("reading it failed: " + ex.Message);
+            // Locked by another program, or not a file: the measurements may still be in there, so nothing is saved over it.
+            _isSaveDisabled = true;
+            _log($"could not read the measurements file ({ex.Message}); measuring from scratch without saving this session, and the file is left as it is");
+
+            return null;
+        }
+    }
+
+    private MeasureLoad? Parse(string text)
+    {
+        try
+        {
+            return MeasureFile.Read(text, _version);
+        }
+        catch (Exception)
+        {
+            return null;
         }
     }
 
@@ -92,9 +128,11 @@ internal sealed class MeasuredFile
     {
         try
         {
-            File.Move(_path, _path + ".bad", true);
+            var badPath = FreeBadPath();
 
-            return Fresh($"measurements file set aside as {Path.GetFileName(_path)}.bad because {reason}; starting fresh");
+            File.Move(_path, badPath, false);
+
+            return Fresh($"measurements file set aside as {Path.GetFileName(badPath)} because {reason}; starting fresh");
         }
         catch (Exception ex)
         {
@@ -103,6 +141,17 @@ internal sealed class MeasuredFile
 
             return Fresh($"measurements file unreadable because {reason}, and could not be set aside ({ex.Message}); measuring from scratch without saving this session");
         }
+    }
+
+    /// <summary>A dated name, with -2, -3 and so on after it when that one is taken, so an older copy is never replaced.</summary>
+    private string FreeBadPath()
+    {
+        var stem = _path + "." + DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+        var candidate = stem + ".bad";
+
+        for (var n = 2; File.Exists(candidate) || Directory.Exists(candidate); n++) candidate = stem + "-" + n + ".bad";
+
+        return candidate;
     }
 
     private MeasureStore Fresh(string reason)
