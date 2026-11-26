@@ -20,7 +20,7 @@ namespace ExactNumbers;
 public sealed class Plugin : BasePlugin
 {
     private const string Guid = "com.dev.survivallog.exactnumbers";
-    private const string Version = "0.3.6";
+    private const string Version = "0.3.7";
 
     /// <summary>Exiled's Toolkit: page messages, the page script's install, live settings and the game reads all come from it.</summary>
     private const string ToolkitGuid = "com.dev.survivallog.exiledtoolkit";
@@ -29,17 +29,17 @@ public sealed class Plugin : BasePlugin
     public override void Load()
     {
         var isEnabled = Config.Bind("General", "Enabled", true,
-            "On (default) shows numbers in place of the + and - marks in the tooltips of object action menus and the crafting table. Off leaves every tooltip as the game draws it. Takes effect at the next game start.\n" +
-            "开启时（默认），物件交互菜单和工作台的悬停提示里的 + 和 - 符号会换成具体数字。关闭时，所有提示都保持游戏原样。下次启动游戏时生效。").Value;
+            "On (default) shows numbers in place of the + and - marks in the tooltips of object action menus and the crafting table. Off leaves every tooltip as the game draws it. Takes effect at the next game start, because the mod adds its script to the game's screens when the game starts.\n" +
+            "开启时（默认），物件交互菜单和工作台的悬停提示里的 + 和 - 符号会换成具体数字。关闭时，所有提示都保持游戏原样。下次启动游戏时生效，因为模组在游戏启动时把脚本加入游戏界面。").Value;
         var applyModifiers = Config.Bind("General", "ApplyModifiers", true,
             new ConfigDescription("On (default) scales the numbers by your character's traits, buffs and conditions, the same way the game scales every satiety, mood, energy and life change. Off shows the numbers without that scaling.\n" +
             "开启时（默认），数字会按角色的特质、增益和状态换算，和游戏换算每次饱腹、心态、精力、生命变化的方式一样。关闭时显示不计倍率的数字。", null, "ModManager.ShowWhen=Enabled"));
         var measure = Config.Bind("General", "Measure", true,
-            new ConfigDescription("On (default) records what each action on an object really did to your character. Once you have finished an action, its tooltip shows that number in place of the game's estimate marked with ~. Off shows only the game's estimates and does not read or save measurements. Takes effect at the next game start.\n" +
-            "开启时（默认），模组会记录每个物件动作实际给角色带来的变化。你完成一次该动作后，提示里就显示这个实测数字，代替游戏标有 ~ 的预估值。关闭时只显示游戏的预估值，也不读取或保存实测记录。下次启动游戏时生效。", null, "ModManager.ShowWhen=Enabled")).Value;
+            new ConfigDescription("On (default) records what each action on an object really did to your character. Once you have finished an action, its tooltip shows that number in place of the game's estimate marked with ~. Off shows only the game's estimates and does not read or save measurements. Takes effect at the next game start, because the mod starts watching your character's stat changes when the game starts.\n" +
+            "开启时（默认），模组会记录每个物件动作实际给角色带来的变化。你完成一次该动作后，提示里就显示这个实测数字，代替游戏标有 ~ 的预估值。关闭时只显示游戏的预估值，也不读取或保存实测记录。下次启动游戏时生效，因为模组在游戏启动时开始记录角色的属性变化。", null, "ModManager.ShowWhen=Enabled")).Value;
         var traceLog = Config.Bind("General", "TraceLog", true,
-            new ConfigDescription("On (default), while Measure is also on, the mod writes every stat change of your character to BepInEx/exact-numbers.log, with whether it counted toward a measurement. This helps with bug reports. The file stays under about 10 MB, and one older copy is kept. Off writes only the mod's usual lines to that file. Takes effect at the next game start.\n" +
-            "开启时（默认），且 Measure 也开启时，模组会把角色的每次属性变化写入 BepInEx/exact-numbers.log，并注明是否计入实测，方便反馈问题。文件保持在约 10 MB 以内，另留一份旧文件。关闭时，该文件只记录模组的常规信息。下次启动游戏时生效。", null, "ModManager.ShowWhen=Enabled;Measure", "ModManager.Advanced")).Value;
+            new ConfigDescription("On (default), while Measure is also on, the mod writes every stat change of your character to BepInEx/exact-numbers.log, with whether it counted toward a measurement. This helps with bug reports. The file stays under about 10 MB, and one older copy is kept. Off writes only the mod's usual lines to that file. Takes effect at the next game start, because this log is set up along with Measure when the game starts.\n" +
+            "开启时（默认），且 Measure 也开启时，模组会把角色的每次属性变化写入 BepInEx/exact-numbers.log，并注明是否计入实测，方便反馈问题。文件保持在约 10 MB 以内，另留一份旧文件。关闭时，该文件只记录模组的常规信息。下次启动游戏时生效，因为这份记录在游戏启动时随 Measure 一起准备好。", null, "ModManager.ShowWhen=Enabled;Measure", "ModManager.Advanced")).Value;
         var log = new ExactLog(Log, Path.Combine(Paths.BepInExRootPath, "exact-numbers.log"));
 
         log.Write($"===== Exact Numbers {Version} started, enabled {isEnabled}, apply modifiers {applyModifiers.Value}, measure {measure}, trace log {traceLog}");

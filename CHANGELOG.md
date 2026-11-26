@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.7
+
+- The `Enabled`, `Measure` and `TraceLog` settings now say why they wait for the next game start.
+- Made for Survival Log 1.1.21671.
+
 ## 0.3.6
 
 - Clearer wording in the settings and in the hover text on the numbers.

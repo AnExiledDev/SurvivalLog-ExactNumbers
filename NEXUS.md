@@ -47,7 +47,7 @@ Max chips already show their number and are left alone. With the Action Speed mo
 
 [size=5]Requirements[/size]
 [list]
-[*]Survival Log 1.1.20719. A game update can break it until the mod is updated.[/*]
+[*]Survival Log 1.1.21671. A game update can break it until the mod is updated.[/*]
 [*][url=https://www.nexusmods.com/survivallog/mods/12]BepInEx for Survival Log[/url] (BepInEx 6.0.0-be.788, IL2CPP). Install it first.[/*]
 [*][url=https://www.nexusmods.com/survivallog/mods/61]Exiled's Toolkit[/url] 0.19.0 or newer. Exact Numbers does not load without it. The Toolkit finds the game's menus and tooltips, passes the numbers to the game's screens, and lets a change to ApplyModifiers on the Mod Manager's Mods screen take effect without a restart.[/*]
 [*]Optional: [url=https://www.nexusmods.com/survivallog/mods/73]Mod Manager[/url]. With it, you can change every setting in game on its Mods screen and see what each one does, without opening the config file.[/*]
@@ -120,7 +120,7 @@ Open source under MIT: [url=https://github.com/AnExiledDev/SurvivalLog-ExactNumb
 
 [size=5]前置要求[/size]
 [list]
-[*]Survival Log 1.1.20719。游戏更新后模组可能暂时失效，直到模组更新为止。[/*]
+[*]Survival Log 1.1.21671。游戏更新后模组可能暂时失效，直到模组更新为止。[/*]
 [*][url=https://www.nexusmods.com/survivallog/mods/12]BepInEx for Survival Log[/url]（BepInEx 6.0.0-be.788，IL2CPP），请先安装。[/*]
 [*][url=https://www.nexusmods.com/survivallog/mods/61]Exiled's Toolkit[/url] 0.19.0 或更新版本。没有它本模组不会加载。它为本模组找到游戏的菜单和提示框，在本模组和游戏界面之间传递数值，并让在 Mod Manager 的「模组」界面修改的 ApplyModifiers 无需重启即可生效。[/*]
 [*]可选：[url=https://www.nexusmods.com/survivallog/mods/73]Mod Manager[/url]。装了它，可以在游戏里它的「模组」界面修改每项设置，并看到每项的说明，不用打开配置文件。[/*]
